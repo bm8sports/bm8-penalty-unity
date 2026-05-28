@@ -628,7 +628,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         UpdateScore();
-        SetStatus(save ? "SAVED - " + keeperAction : "GOAL");
+        SetStatus(save ? "SAVED - " + keeperAction + " " + GridName(keeperCol, keeperRow) : "GOAL");
         if (save && !UseAaAnimatedKeeper)
         {
             keeper.position = keeperStart;
@@ -1316,6 +1316,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private void ApplyImportedKeeperActionOffset(float t)
     {
         float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+        // The imported keeper rig faces the scene with its local lateral axis mirrored
+        // relative to the goal grid, so visual travel must be flipped here only.
+        float visualSide = -side;
         bool top = keeperRow == 0;
         bool middle = keeperRow == 1;
         bool bottom = keeperRow == 2;
@@ -1327,19 +1330,19 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float snap = Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI);
         float contactPunch = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.34f, 0.62f, t)) * Mathf.PI);
 
-        float x = -side * 0.2f * coil + side * (top ? 1.58f : middle ? 1.22f : 1.46f) * hold + side * 0.16f * contactPunch;
-        float y = -0.18f * coil + (top ? 0.66f : middle ? 0.22f : -0.42f) * hold + 0.12f * snap;
-        float z = -0.1f * coil + (top ? -0.24f : middle ? -0.38f : -0.68f) * hold - 0.14f * contactPunch;
+        float x = -visualSide * 0.12f * coil + visualSide * (top ? 0.78f : middle ? 1.02f : 1.18f) * hold + visualSide * 0.1f * contactPunch;
+        float y = -0.14f * coil + (top ? 0.36f : middle ? 0.16f : -0.34f) * hold + 0.08f * snap;
+        float z = -0.08f * coil + (top ? -0.1f : middle ? -0.3f : -0.56f) * hold - 0.1f * contactPunch;
         if (side == 0f)
         {
             x = 0f;
-            y = -0.16f * coil + (top ? 0.62f : middle ? 0.14f : -0.18f) * hold + 0.09f * snap;
-            z = -0.12f * coil + (top ? -0.32f : middle ? -0.56f : -0.62f) * hold - 0.12f * contactPunch;
+            y = -0.12f * coil + (top ? 0.5f : middle ? 0.12f : -0.18f) * hold + 0.07f * snap;
+            z = -0.1f * coil + (top ? -0.26f : middle ? -0.48f : -0.56f) * hold - 0.1f * contactPunch;
         }
 
         importedKeeperActionOffsetLocal = new Vector3(x, y, z);
-        float pitch = -10f * coil + (top ? -24f : bottom ? 24f : -10f) * hold + (bottom ? 12f : -7f) * contactPunch;
-        float roll = side == 0f ? 0f : -side * ((top ? 36f : middle ? 46f : 58f) * hold + 12f * contactPunch);
+        float pitch = -7f * coil + (top ? -8f : bottom ? 20f : -8f) * hold + (bottom ? 10f : -4f) * contactPunch;
+        float roll = side == 0f ? 0f : -visualSide * ((top ? 10f : middle ? 38f : 48f) * hold + (top ? 3f : 8f) * contactPunch);
         importedKeeperActionRotationOffset = Quaternion.Euler(pitch, 0f, roll);
     }
 
