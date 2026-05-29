@@ -990,6 +990,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float contactTime = UseAaAnimatedKeeper ? AaContactTime() : 0.32f;
         float loadTime = Mathf.Clamp01(contactTime + (UseAaAnimatedKeeper ? 0.055f : 0.06f));
         float punchTime = Mathf.Clamp01(loadTime + (UseAaAnimatedKeeper ? AaPunchWindow() : 0.24f));
+        if (UseAaAnimatedKeeper && keeperRow == 0)
+        {
+            contact += new Vector3(0f, 0.14f, -0.08f);
+            loadTime = Mathf.Clamp01(contactTime + 0.13f);
+            punchTime = Mathf.Clamp01(loadTime + 0.2f);
+        }
         Vector3 palmLoad = contact + (standingBlockSave ? new Vector3(0f, -0.05f, -0.02f) : AaPalmLoadOffset());
         Vector3 deflect = standingBlockSave
             ? new Vector3(
@@ -2684,14 +2690,19 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Vector3 AaPalmLoadOffset()
     {
         float side = keeperCol == 1 ? saveReboundSide : Mathf.Sign(keeperCol - 1f);
+        if (keeperRow == 0)
+        {
+            return new Vector3(side * 0.035f, 0.015f, -0.055f);
+        }
+
         float y = keeperRow == 0 ? -0.06f : keeperRow == 2 ? -0.025f : -0.04f;
         return new Vector3(-side * 0.08f, y, -0.06f);
     }
 
     private Vector3 AaDeflectWorld(Vector3 contact, float reboundSide)
     {
-        float sidePush = keeperRow == 0 ? UnityEngine.Random.Range(2.35f, 3.15f) : keeperRow == 2 ? UnityEngine.Random.Range(2.15f, 2.85f) : UnityEngine.Random.Range(2.55f, 3.35f);
-        float upPush = keeperRow == 0 ? UnityEngine.Random.Range(1.15f, 1.55f) : keeperRow == 2 ? UnityEngine.Random.Range(0.22f, 0.5f) : UnityEngine.Random.Range(0.72f, 1.08f);
+        float sidePush = keeperRow == 0 ? UnityEngine.Random.Range(1.28f, 1.76f) : keeperRow == 2 ? UnityEngine.Random.Range(2.15f, 2.85f) : UnityEngine.Random.Range(2.55f, 3.35f);
+        float upPush = keeperRow == 0 ? UnityEngine.Random.Range(0.68f, 0.98f) : keeperRow == 2 ? UnityEngine.Random.Range(0.22f, 0.5f) : UnityEngine.Random.Range(0.72f, 1.08f);
         float zPush = keeperRow == 2 ? UnityEngine.Random.Range(-3.45f, -2.85f) : UnityEngine.Random.Range(-3.7f, -2.8f);
         return new Vector3(
             Mathf.Clamp(contact.x + reboundSide * sidePush, -3.75f, 3.75f),
@@ -2723,7 +2734,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         if (keeperRow == 0)
         {
-            return 1.45f;
+            return 0.95f;
         }
 
         if (keeperRow == 2)
