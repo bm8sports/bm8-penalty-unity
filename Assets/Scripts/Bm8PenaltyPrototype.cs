@@ -1123,7 +1123,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 if (t < contactTime)
                 {
                     float inT = t / contactTime;
-                    position = Vector3.Lerp(from, contact, inT);
+                    float shotT = EaseOut(inT, 2.2f);
+                    position = Vector3.Lerp(from, contact, shotT);
                     position.y += Mathf.Sin(inT * Mathf.PI) * AaShotArcHeight(saved);
                 }
                 else if (t < loadTime)
@@ -1135,7 +1136,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 else if (t < punchTime)
                 {
                     float outT = (t - loadTime) / (punchTime - loadTime);
-                    position = Vector3.Lerp(palmLoad, deflect, Smooth(outT));
+                    position = Vector3.Lerp(palmLoad, deflect, EaseOut(outT, 2.4f));
                     position.y += Mathf.Sin(outT * Mathf.PI) * (UseAaAnimatedKeeper ? AaDeflectArcHeight() : 1.36f);
                 }
                 else
@@ -1147,7 +1148,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
             else
             {
-                position = Vector3.Lerp(from, to, t);
+                float shotT = EaseOut(t, 2.15f);
+                position = Vector3.Lerp(from, to, shotT);
                 position.x += Mathf.Sin(t * Mathf.PI) * side * 0.32f;
                 position.y += Mathf.Sin(t * Mathf.PI) * 1.36f;
             }
@@ -3156,6 +3158,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static float Smooth(float t)
     {
         return t * t * (3f - 2f * t);
+    }
+
+    private static float EaseOut(float t, float power)
+    {
+        t = Mathf.Clamp01(t);
+        return 1f - Mathf.Pow(1f - t, power);
     }
 
     private static Vector3 ReadyCameraPosition()
