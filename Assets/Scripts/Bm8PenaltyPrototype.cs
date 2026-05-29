@@ -635,7 +635,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             keeper.rotation = Quaternion.identity;
             ResetPose();
         }
-        yield return new WaitForSeconds(save ? 1.35f : 0.9f);
+        yield return new WaitForSeconds(save ? keeperRow == 0 ? 1.65f : 1.35f : 0.9f);
         ForceReadyReset();
         SetStatus("Tap goal");
         shooting = false;
@@ -1316,9 +1316,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private void ApplyImportedKeeperActionOffset(float t)
     {
         float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
-        // The imported keeper rig faces the scene with its local lateral axis mirrored
-        // relative to the goal grid, so visual travel must be flipped here only.
-        float visualSide = -side;
+        float visualSide = side;
         bool top = keeperRow == 0;
         bool middle = keeperRow == 1;
         bool bottom = keeperRow == 2;
@@ -1703,18 +1701,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         RuntimeAnimatorController controller;
         if (keeperRow == 0)
         {
-            if (keeperCol == 0)
-            {
-                controller = save ? keeperHitTopLeftSuccessController : keeperHitTopLeftFailController;
-            }
-            else if (keeperCol == 2)
-            {
-                controller = save ? keeperHitTopRightSuccessController : keeperHitTopRightFailController;
-            }
-            else
-            {
-                controller = save ? keeperCatchUpSuccessController : keeperCatchUpFailController;
-            }
+            controller = keeperIdleController;
         }
         else if (keeperRow == 2)
         {
