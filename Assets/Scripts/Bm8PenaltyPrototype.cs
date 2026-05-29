@@ -13,6 +13,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static readonly bool UseAaAnimatedKeeper = true;
     private static readonly bool UseGeneratedKeeperSpriteSheet = false;
     private static readonly bool UseArcadeVideoCamera = true;
+    private const float ShotWatchdogSeconds = 8.5f;
+    private const double ShotWatchdogWallSeconds = 8.5d;
+    private const float KeeperTestShotTimeoutSeconds = 9.5f;
     private const string UploadedStylizedKeeperPath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/Goalkeeper_TPose.FBX";
     private const string Bm8KeeperBaseTexturePath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/textures/Goalkeeper_Base_color.png";
 
@@ -157,7 +160,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         UpdateGoalGridOverlay();
         RunShotWatchdog();
 
-        if (shooting && Time.realtimeSinceStartup - shootingStartedRealtime > 5.8f)
+        if (shooting && Time.realtimeSinceStartup - shootingStartedRealtime > ShotWatchdogSeconds)
         {
             ResetShot();
             SetStatus("Shot timeout reset");
@@ -397,7 +400,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         double started = shootingStartedWallClock > 0.001d ? shootingStartedWallClock : WallClockSeconds();
-        if (WallClockSeconds() - started > 5.8d)
+        if (WallClockSeconds() - started > ShotWatchdogWallSeconds)
         {
             ResetShot();
             SetStatus("Shot watchdog reset");
@@ -706,7 +709,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 float shotWaitStarted = Time.realtimeSinceStartup;
                 while (shooting)
                 {
-                    if (Time.realtimeSinceStartup - shotWaitStarted > 5.8f)
+                    if (Time.realtimeSinceStartup - shotWaitStarted > KeeperTestShotTimeoutSeconds)
                     {
                         ResetShot();
                         SetStatus("TEST timeout " + GridName(col, row));
@@ -743,7 +746,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float shotWaitStarted = Time.realtimeSinceStartup;
             while (shooting)
             {
-                if (Time.realtimeSinceStartup - shotWaitStarted > 5.8f)
+                if (Time.realtimeSinceStartup - shotWaitStarted > KeeperTestShotTimeoutSeconds)
                 {
                     ResetShot();
                     SetStatus("TEST TOP timeout " + GridName(col, 0));
@@ -2404,24 +2407,24 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             backdrop.SetParent(transform, false);
         }
 
-        EnsureWorldBox(backdrop, "Back Wall", new Vector3(0f, 1.92f, 5.32f), new Vector3(8.7f, 3.35f, 0.08f), new Color(0.08f, 0.12f, 0.18f));
-        EnsureWorldBox(backdrop, "Red Left Panel", new Vector3(-3.25f, 1.72f, 5.26f), new Vector3(1.65f, 2.75f, 0.1f), new Color(0.82f, 0.12f, 0.07f));
-        EnsureWorldBox(backdrop, "Blue Center Panel", new Vector3(0f, 1.72f, 5.25f), new Vector3(2.25f, 2.75f, 0.1f), new Color(0.05f, 0.42f, 0.68f));
-        EnsureWorldBox(backdrop, "Red Right Panel", new Vector3(3.25f, 1.72f, 5.26f), new Vector3(1.65f, 2.75f, 0.1f), new Color(0.82f, 0.12f, 0.07f));
-        EnsureWorldBox(backdrop, "Top Light Band", new Vector3(0f, 3.55f, 5.22f), new Vector3(8.8f, 0.26f, 0.12f), new Color(0.98f, 0.82f, 0.16f));
+        EnsureWorldBox(backdrop, "Back Wall", new Vector3(0f, 1.92f, 5.32f), new Vector3(8.7f, 3.35f, 0.08f), new Color(0.035f, 0.055f, 0.085f));
+        EnsureWorldBox(backdrop, "Red Left Panel", new Vector3(-3.25f, 1.72f, 5.26f), new Vector3(1.65f, 2.75f, 0.1f), new Color(0.52f, 0.055f, 0.045f));
+        EnsureWorldBox(backdrop, "Blue Center Panel", new Vector3(0f, 1.72f, 5.25f), new Vector3(2.25f, 2.75f, 0.1f), new Color(0.035f, 0.24f, 0.42f));
+        EnsureWorldBox(backdrop, "Red Right Panel", new Vector3(3.25f, 1.72f, 5.26f), new Vector3(1.65f, 2.75f, 0.1f), new Color(0.52f, 0.055f, 0.045f));
+        EnsureWorldBox(backdrop, "Top Light Band", new Vector3(0f, 3.55f, 5.22f), new Vector3(8.8f, 0.18f, 0.12f), new Color(0.62f, 0.52f, 0.12f));
         EnsureWorldBox(backdrop, "Left Ad Board", new Vector3(-4.35f, 0.55f, 3.8f), new Vector3(0.12f, 0.72f, 2.2f), new Color(0.03f, 0.03f, 0.035f));
         EnsureWorldBox(backdrop, "Right Ad Board", new Vector3(4.35f, 0.55f, 3.8f), new Vector3(0.12f, 0.72f, 2.2f), new Color(0.03f, 0.03f, 0.035f));
 
         for (int i = 0; i <= 6; i++)
         {
             float x = Mathf.Lerp(-3.05f, 3.05f, i / 6f);
-            EnsureWorldBox(backdrop, "Net Vertical " + i, new Vector3(x, 1.42f, 5.18f), new Vector3(0.018f, 2.18f, 0.018f), new Color(0.7f, 0.76f, 0.82f, 0.8f));
+            EnsureWorldBox(backdrop, "Net Vertical " + i, new Vector3(x, 1.42f, 5.18f), new Vector3(0.01f, 2.18f, 0.01f), new Color(0.34f, 0.44f, 0.54f));
         }
 
         for (int i = 0; i <= 5; i++)
         {
             float y = Mathf.Lerp(0.38f, 2.48f, i / 5f);
-            EnsureWorldBox(backdrop, "Net Horizontal " + i, new Vector3(0f, y, 5.17f), new Vector3(6.12f, 0.018f, 0.018f), new Color(0.7f, 0.76f, 0.82f, 0.8f));
+            EnsureWorldBox(backdrop, "Net Horizontal " + i, new Vector3(0f, y, 5.17f), new Vector3(6.12f, 0.01f, 0.01f), new Color(0.34f, 0.44f, 0.54f));
         }
     }
 
