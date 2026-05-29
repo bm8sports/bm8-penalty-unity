@@ -611,9 +611,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         string keeperAction = KeeperActionName(keeperCol, keeperRow);
         SetStatus("Keeper " + keeperAction + " " + GridName(keeperCol, keeperRow));
         PlayKeeperDiveAnimation(save);
-        StartCoroutine(DiveKeeper(keeperTarget, save ? 1.08f : 0.92f));
+        float keeperDuration = save ? keeperRow == 0 ? 1.38f : 1.08f : 0.92f;
+        StartCoroutine(DiveKeeper(keeperTarget, keeperDuration));
         saveReboundSide = keeperCol == 1 ? (aimCol == 0 ? -1f : aimCol == 2 ? 1f : UnityEngine.Random.value < 0.5f ? -1f : 1f) : Mathf.Sign(keeperCol - 1f);
-        yield return FlyBall(ballStart, target, save, save ? 1.08f : 0.9f);
+        yield return FlyBall(ballStart, target, save, save ? keeperRow == 0 ? 1.22f : 1.08f : 0.9f);
 
         shotCount++;
         if (save)
@@ -1327,10 +1328,24 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float hold = launch * (1f - recover);
         float snap = Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI);
         float contactPunch = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.34f, 0.62f, t)) * Mathf.PI);
+        if (top)
+        {
+            coil = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0f, 0.18f, t)) * Mathf.PI);
+            launch = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.08f, 0.34f, t));
+            recover = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.76f, 1f, t));
+            hold = launch * (1f - recover);
+            contactPunch = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.34f, 0.5f, t)) * Mathf.PI);
+        }
 
         float x = -visualSide * 0.12f * coil + visualSide * (top ? 0.78f : middle ? 1.02f : 1.18f) * hold + visualSide * 0.1f * contactPunch;
         float y = -0.14f * coil + (top ? 0.36f : middle ? 0.16f : -0.34f) * hold + 0.08f * snap;
         float z = -0.08f * coil + (top ? -0.1f : middle ? -0.3f : -0.56f) * hold - 0.1f * contactPunch;
+        if (top)
+        {
+            x = -visualSide * 0.08f * coil + visualSide * 0.92f * hold + visualSide * 0.06f * contactPunch;
+            y = -0.1f * coil + 0.62f * hold + 0.06f * snap;
+            z = -0.06f * coil - 0.18f * hold - 0.06f * contactPunch;
+        }
         if (side == 0f)
         {
             x = 0f;
@@ -1341,6 +1356,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         importedKeeperActionOffsetLocal = new Vector3(x, y, z);
         float pitch = -7f * coil + (top ? -8f : bottom ? 20f : -8f) * hold + (bottom ? 10f : -4f) * contactPunch;
         float roll = side == 0f ? 0f : -visualSide * ((top ? 10f : middle ? 38f : 48f) * hold + (top ? 3f : 8f) * contactPunch);
+        if (top)
+        {
+            pitch = -5f * coil - 8f * hold - 3f * contactPunch;
+            roll = side == 0f ? 0f : -visualSide * (7f * hold + 2f * contactPunch);
+        }
         importedKeeperActionRotationOffset = Quaternion.Euler(pitch, 0f, roll);
     }
 
