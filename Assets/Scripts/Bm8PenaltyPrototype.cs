@@ -1481,15 +1481,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float z = 0.08f * anticipation - 0.08f * coil + (top ? -0.1f : middle ? -0.3f : -0.56f) * hold - 0.1f * contactPunch;
         if (top)
         {
-            x = -visualSide * 0.1f * anticipation - visualSide * 0.08f * coil + visualSide * 0.92f * hold + visualSide * 0.06f * contactPunch;
-            y = -0.16f * anticipation - 0.1f * coil + 0.62f * hold + 0.06f * snap;
-            z = 0.06f * anticipation - 0.06f * coil - 0.18f * hold - 0.06f * contactPunch;
+            x = -visualSide * 0.07f * anticipation - visualSide * 0.05f * coil + visualSide * 0.52f * hold + visualSide * 0.035f * contactPunch;
+            y = -0.14f * anticipation - 0.08f * coil + 0.72f * hold + 0.05f * snap;
+            z = 0.05f * anticipation - 0.05f * coil - 0.14f * hold - 0.045f * contactPunch;
         }
         if (side == 0f)
         {
             x = 0f;
-            y = -0.2f * anticipation - 0.12f * coil + (top ? 0.5f : middle ? 0.12f : -0.18f) * hold + 0.07f * snap;
-            z = 0.07f * anticipation - 0.1f * coil + (top ? -0.26f : middle ? -0.48f : -0.56f) * hold - 0.1f * contactPunch;
+            y = -0.2f * anticipation - 0.12f * coil + (top ? 0.68f : middle ? 0.12f : -0.18f) * hold + 0.07f * snap;
+            z = 0.07f * anticipation - 0.1f * coil + (top ? -0.18f : middle ? -0.48f : -0.56f) * hold - 0.1f * contactPunch;
         }
 
         importedKeeperActionOffsetLocal = new Vector3(x, y, z);
@@ -1498,7 +1498,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (top)
         {
             pitch = 7f * anticipation - 5f * coil - 8f * hold - 3f * contactPunch;
-            roll = side == 0f ? 0f : visualSide * 4f * anticipation - visualSide * (7f * hold + 2f * contactPunch);
+            roll = side == 0f ? 0f : visualSide * 3f * anticipation - visualSide * (3.5f * hold + 1.5f * contactPunch);
         }
         importedKeeperActionRotationOffset = Quaternion.Euler(pitch, 0f, roll);
     }
@@ -1594,13 +1594,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         Vector3 centerLocal = keeper.InverseTransformPoint(bounds.center);
         float centerDriftX = centerLocal.x - importedKeeperReadyBoundsCenterLocal.x;
         float centerDriftY = centerLocal.y - importedKeeperReadyBoundsCenterLocal.y;
-        if (Mathf.Abs(centerDriftX) > 2.2f)
+        float maxCenterDriftX = shooting && keeperRow == 0 ? 1.18f : 2.2f;
+        float maxCenterDriftY = shooting && keeperRow == 0 ? 1.15f : 1.35f;
+        if (Mathf.Abs(centerDriftX) > maxCenterDriftX)
         {
-            correction.x -= Mathf.Sign(centerDriftX) * (Mathf.Abs(centerDriftX) - 2.2f);
+            correction.x -= Mathf.Sign(centerDriftX) * (Mathf.Abs(centerDriftX) - maxCenterDriftX);
         }
-        if (Mathf.Abs(centerDriftY) > 1.35f)
+        if (Mathf.Abs(centerDriftY) > maxCenterDriftY)
         {
-            correction.y -= Mathf.Sign(centerDriftY) * (Mathf.Abs(centerDriftY) - 1.35f);
+            correction.y -= Mathf.Sign(centerDriftY) * (Mathf.Abs(centerDriftY) - maxCenterDriftY);
         }
 
         if (correction.sqrMagnitude > 0.000001f)
@@ -2953,7 +2955,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private Vector3 AaKeeperContactWorld()
     {
-        float xScale = keeperCol == 1 ? 0.12f : keeperRow == 0 ? 0.88f : keeperRow == 2 ? 0.74f : 0.82f;
+        float xScale = keeperCol == 1 ? 0.12f : keeperRow == 0 ? 0.68f : keeperRow == 2 ? 0.74f : 0.82f;
         float x = GridX(keeperCol) * xScale;
         float y = GridY(keeperRow) + (keeperRow == 0 ? 0.42f : keeperRow == 1 ? 0.06f : -0.06f);
         float z = keeperStart.z - (keeperRow == 2 ? 0.72f : 0.86f);
