@@ -93,6 +93,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Vector3 importedKeeperAnchorLocalScale = Vector3.one * 1.05f;
     private Vector3 importedKeeperActionOffsetLocal;
     private Quaternion importedKeeperActionRotationOffset = Quaternion.identity;
+    private float importedKeeperActionT;
     private Vector3 importedKeeperReadyBoundsCenterLocal;
     private bool importedKeeperBoundsCaptured;
     private string resultBanner = "";
@@ -1306,16 +1307,19 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         keeperVisibleModel.localRotation = importedKeeperAnchorLocalRotation * importedKeeperActionRotationOffset;
         keeperVisibleModel.localScale = importedKeeperAnchorLocalScale;
         ClampImportedKeeperVisibleBounds();
+        PoseImportedKeeperTopTipHands();
     }
 
     private void ClearImportedKeeperActionOffset()
     {
         importedKeeperActionOffsetLocal = Vector3.zero;
         importedKeeperActionRotationOffset = Quaternion.identity;
+        importedKeeperActionT = 0f;
     }
 
     private void ApplyImportedKeeperActionOffset(float t)
     {
+        importedKeeperActionT = Mathf.Clamp01(t);
         float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
         float visualSide = side;
         bool top = keeperRow == 0;
@@ -1362,6 +1366,52 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             roll = side == 0f ? 0f : -visualSide * (7f * hold + 2f * contactPunch);
         }
         importedKeeperActionRotationOffset = Quaternion.Euler(pitch, 0f, roll);
+    }
+
+    private void PoseImportedKeeperTopTipHands()
+    {
+        if (!shooting || keeperRow != 0 || keeperAnimator == null || !keeperAnimator.isHuman)
+        {
+            return;
+        }
+
+        Transform leftHand = keeperAnimator.GetBoneTransform(HumanBodyBones.LeftHand);
+        Transform rightHand = keeperAnimator.GetBoneTransform(HumanBodyBones.RightHand);
+        if (leftHand == null || rightHand == null)
+        {
+            return;
+        }
+
+        float reachIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.1f, 0.42f, importedKeeperActionT));
+        float reachOut = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.78f, 1f, importedKeeperActionT));
+        float reach = reachIn * (1f - reachOut);
+        if (reach <= 0.001f)
+        {
+            return;
+        }
+
+        float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+        Vector3 contact = AaKeeperContactWorld() + new Vector3(0f, 0.16f, -0.08f);
+        Vector3 leftTarget = contact + new Vector3(side < 0f ? -0.04f : -0.22f, side < 0f ? 0.02f : -0.06f, -0.02f);
+        Vector3 rightTarget = contact + new Vector3(side > 0f ? 0.04f : 0.22f, side > 0f ? 0.02f : -0.06f, -0.02f);
+        if (side == 0f)
+        {
+            leftTarget = contact + new Vector3(-0.16f, 0f, -0.02f);
+            rightTarget = contact + new Vector3(0.16f, 0f, -0.02f);
+        }
+
+        leftHand.position = Vector3.Lerp(leftHand.position, leftTarget, reach);
+        rightHand.position = Vector3.Lerp(rightHand.position, rightTarget, reach);
+        Vector3 leftAim = contact - leftHand.position;
+        Vector3 rightAim = contact - rightHand.position;
+        if (leftAim.sqrMagnitude > 0.0001f)
+        {
+            leftHand.rotation = Quaternion.Slerp(leftHand.rotation, Quaternion.LookRotation(leftAim.normalized, Vector3.up), reach * 0.68f);
+        }
+        if (rightAim.sqrMagnitude > 0.0001f)
+        {
+            rightHand.rotation = Quaternion.Slerp(rightHand.rotation, Quaternion.LookRotation(rightAim.normalized, Vector3.up), reach * 0.68f);
+        }
     }
 
     private void ClampImportedKeeperVisibleBounds()
