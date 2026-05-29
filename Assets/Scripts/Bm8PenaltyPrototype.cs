@@ -812,27 +812,34 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float strike = Mathf.Clamp01((t - 0.22f) / 0.42f);
             float follow = Mathf.Clamp01((t - 0.62f) / 0.38f);
             float snap = Mathf.SmoothStep(0f, 1f, strike);
+            float impact = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.36f, 0.54f, t)) * Mathf.PI);
             float bodyTurn = Mathf.Sin(t * Mathf.PI);
             float aimSide = Mathf.Abs(aimX) < 0.1f ? 0f : Mathf.Sign(aimX);
 
-            player.position = Vector3.Lerp(new Vector3(-0.35f, playerStart.y, -2.15f), new Vector3(-0.12f, playerStart.y, -2.48f), Smooth(t));
+            player.position = Vector3.Lerp(new Vector3(-0.35f, playerStart.y, -2.15f), new Vector3(-0.12f, playerStart.y, -2.48f), Smooth(t))
+                + new Vector3(-aimSide * 0.025f * impact, -0.035f * impact, -0.035f * impact);
             player.rotation = Quaternion.Slerp(from, to, bodyTurn);
-            SetLocalPosition(strikerTorso, new Vector3(0f, 1.02f - 0.04f * snap, 0.08f * snap));
-            SetLocalPosition(strikerHead, new Vector3(aimSide * 0.04f, 1.8f, 0.04f + 0.04f * follow));
-            SetLocalPosition(strikerRightLeg, new Vector3(0.22f, 0.18f, Mathf.Lerp(-0.2f, 0.32f, snap)));
+            SetLocalPosition(strikerTorso, new Vector3(0f, 1.02f - 0.04f * snap - 0.045f * impact, 0.08f * snap + 0.045f * impact));
+            SetLocalPosition(strikerHead, new Vector3(aimSide * 0.04f, 1.8f - 0.025f * impact, 0.04f + 0.04f * follow + 0.035f * impact));
+            SetLocalPosition(strikerRightLeg, new Vector3(0.22f + aimSide * 0.035f * impact, 0.18f - 0.035f * impact, Mathf.Lerp(-0.2f, 0.32f, snap) + 0.12f * impact));
             SetLocalPosition(strikerLeftLeg, new Vector3(-0.26f, 0.2f, Mathf.Lerp(0.1f, -0.08f, snap)));
             SetLocalPosition(strikerLeftArm, new Vector3(-0.55f, 1.1f, 0.08f + 0.08f * bodyTurn));
-            SetLocalPosition(strikerRightArm, new Vector3(0.55f, 1.08f, -0.1f + 0.18f * snap));
-            SetLocalRotation(strikerTorso, Mathf.Lerp(-24f, 24f, snap) - 10f * follow, aimSide * 16f * snap, -aimSide * 16f * bodyTurn);
+            SetLocalPosition(strikerRightArm, new Vector3(0.55f, 1.08f, -0.1f + 0.18f * snap - 0.04f * impact));
+            SetLocalRotation(strikerTorso, Mathf.Lerp(-24f, 24f, snap) - 10f * follow - 5f * impact, aimSide * (16f * snap + 4f * impact), -aimSide * 16f * bodyTurn);
             SetLocalRotation(strikerHead, -6f + 10f * follow, aimSide * 18f, aimSide * 3f);
-            SetLocalRotation(strikerRightLeg, Mathf.Lerp(-112f, 124f, snap) - 28f * follow, aimSide * 10f, aimSide * 8f);
+            SetLocalRotation(strikerRightLeg, Mathf.Lerp(-112f, 124f, snap) - 28f * follow + 18f * impact, aimSide * (10f + 8f * impact), aimSide * 8f);
             SetLocalRotation(strikerLeftLeg, Mathf.Lerp(28f, -46f, windUp) + 18f * follow, 0f, -aimSide * 12f);
             SetLocalRotation(strikerLeftArm, Mathf.Lerp(40f, 78f, bodyTurn), 0f, 34f + aimSide * 12f);
             SetLocalRotation(strikerRightArm, Mathf.Lerp(-86f, -18f, snap), 0f, -34f + aimSide * 9f);
             AnimateVisibleStriker(Mathf.Lerp(-12f, 22f, snap), bodyTurn * aimSide, follow);
+            ApplyBallImpactScale(impact * 0.55f);
+            cameraRig.position = ReadyCameraPosition() + new Vector3(aimSide * impact * 0.035f, impact * 0.02f, impact * 0.05f);
+            cameraRig.rotation = Quaternion.Euler(6.5f - impact * 0.8f, aimSide * impact * 0.55f, 0f);
             ball.Rotate(new Vector3(620f, 240f, aimSide * 140f) * Time.deltaTime, Space.World);
             yield return null;
         }
+
+        ball.localScale = ballBaseScale;
     }
 
     private IEnumerator DiveKeeper(Vector3 to, float duration)
