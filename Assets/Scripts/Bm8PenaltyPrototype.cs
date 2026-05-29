@@ -2445,6 +2445,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         HideLegacyControl(canvas.transform, "Right Button");
         HideLegacyControl(canvas.transform, "Shoot Button");
         HideLegacyControl(canvas.transform, "Reset Button");
+        DestroyRuntimeControl(canvas.transform, "Test All Keeper Zones Button");
+        DestroyRuntimeControl(canvas.transform, "Test Top Keeper Zones Button");
         SetLegacyText(canvas.transform, "Hint", "");
 
         GameObject gridObject = new GameObject("Goal 9 Grid");
@@ -2484,8 +2486,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
         }
 
-        EnsureTestAllButton(canvas.transform);
-        EnsureTestTopButton(canvas.transform);
         gridObject.transform.SetAsLastSibling();
         UpdateGoalGridOverlay();
     }
@@ -2541,102 +2541,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         textRect.offsetMin = Vector2.zero;
         textRect.offsetMax = Vector2.zero;
         return button;
-    }
-
-    private void EnsureTestAllButton(Transform parent)
-    {
-        Transform existing = parent.Find("Test All Keeper Zones Button");
-        if (existing != null)
-        {
-            Destroy(existing.gameObject);
-        }
-
-        GameObject buttonObject = new GameObject("Test All Keeper Zones Button");
-        buttonObject.transform.SetParent(parent, false);
-
-        Image image = buttonObject.AddComponent<Image>();
-        image.color = new Color(0.04f, 0.04f, 0.04f, 0.76f);
-
-        Button button = buttonObject.AddComponent<Button>();
-        ColorBlock colors = button.colors;
-        colors.normalColor = new Color(0.04f, 0.04f, 0.04f, 0.76f);
-        colors.highlightedColor = new Color(0.12f, 0.12f, 0.12f, 0.9f);
-        colors.pressedColor = new Color(0.95f, 0.12f, 0.08f, 0.9f);
-        colors.selectedColor = colors.highlightedColor;
-        button.colors = colors;
-        button.onClick.AddListener(RunKeeperZoneTest);
-
-        RectTransform rect = buttonObject.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1f, 1f);
-        rect.anchorMax = new Vector2(1f, 1f);
-        rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = new Vector2(-18f, -84f);
-        rect.sizeDelta = new Vector2(92f, 28f);
-
-        GameObject textObject = new GameObject("Label");
-        textObject.transform.SetParent(buttonObject.transform, false);
-        Text text = textObject.AddComponent<Text>();
-        text.text = "TEST 9";
-        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        text.fontSize = 14;
-        text.fontStyle = FontStyle.Bold;
-        text.alignment = TextAnchor.MiddleCenter;
-        text.color = new Color(1f, 0.92f, 0.16f);
-        text.raycastTarget = false;
-
-        RectTransform textRect = textObject.GetComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = Vector2.zero;
-        textRect.offsetMax = Vector2.zero;
-    }
-
-    private void EnsureTestTopButton(Transform parent)
-    {
-        Transform existing = parent.Find("Test Top Keeper Zones Button");
-        if (existing != null)
-        {
-            Destroy(existing.gameObject);
-        }
-
-        GameObject buttonObject = new GameObject("Test Top Keeper Zones Button");
-        buttonObject.transform.SetParent(parent, false);
-
-        Image image = buttonObject.AddComponent<Image>();
-        image.color = new Color(0.04f, 0.04f, 0.04f, 0.76f);
-
-        Button button = buttonObject.AddComponent<Button>();
-        ColorBlock colors = button.colors;
-        colors.normalColor = new Color(0.04f, 0.04f, 0.04f, 0.76f);
-        colors.highlightedColor = new Color(0.12f, 0.12f, 0.12f, 0.9f);
-        colors.pressedColor = new Color(0.95f, 0.12f, 0.08f, 0.9f);
-        colors.selectedColor = colors.highlightedColor;
-        button.colors = colors;
-        button.onClick.AddListener(RunTopKeeperZoneTest);
-
-        RectTransform rect = buttonObject.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1f, 1f);
-        rect.anchorMax = new Vector2(1f, 1f);
-        rect.pivot = new Vector2(1f, 1f);
-        rect.anchoredPosition = new Vector2(-18f, -118f);
-        rect.sizeDelta = new Vector2(92f, 28f);
-
-        GameObject textObject = new GameObject("Label");
-        textObject.transform.SetParent(buttonObject.transform, false);
-        Text text = textObject.AddComponent<Text>();
-        text.text = "TEST TOP";
-        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        text.fontSize = 13;
-        text.fontStyle = FontStyle.Bold;
-        text.alignment = TextAnchor.MiddleCenter;
-        text.color = new Color(1f, 0.92f, 0.16f);
-        text.raycastTarget = false;
-
-        RectTransform textRect = textObject.GetComponent<RectTransform>();
-        textRect.anchorMin = Vector2.zero;
-        textRect.anchorMax = Vector2.one;
-        textRect.offsetMin = Vector2.zero;
-        textRect.offsetMax = Vector2.zero;
     }
 
     private void UpdateGoalGridOverlay()
@@ -2994,6 +2898,18 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             if (child.name == name)
             {
                 child.gameObject.SetActive(false);
+            }
+        }
+    }
+
+    private static void DestroyRuntimeControl(Transform parent, string name)
+    {
+        Transform[] children = parent.GetComponentsInChildren<Transform>(true);
+        foreach (Transform child in children)
+        {
+            if (child.name == name)
+            {
+                Destroy(child.gameObject);
             }
         }
     }
