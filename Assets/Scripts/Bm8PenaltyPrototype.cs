@@ -172,6 +172,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
+        if (Input.GetKeyDown(KeyCode.Y))
+        {
+            StartCoroutine(TestTopKeeperZones());
+            return;
+        }
+
         if (Input.GetMouseButtonDown(0) && TryShootFromMouse(Input.mousePosition))
         {
             return;
@@ -352,9 +358,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             RunKeeperZoneTest();
         }
+
+        Rect topTestRect = new Rect(Screen.width - 114f, 116f, 92f, 30f);
+        if (GUI.Button(topTestRect, "TEST TOP", style))
+        {
+            RunTopKeeperZoneTest();
+        }
         GUI.enabled = true;
 
-        Rect resetRect = new Rect(Screen.width - 114f, 116f, 92f, 30f);
+        Rect resetRect = new Rect(Screen.width - 114f, 150f, 92f, 30f);
         if (GUI.Button(resetRect, "RESET", style))
         {
             ResetShot();
@@ -540,6 +552,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
     }
 
+    public void RunTopKeeperZoneTest()
+    {
+        if (!shooting)
+        {
+            StartCoroutine(TestTopKeeperZones());
+        }
+    }
+
     private void SetAimGrid(int col, int row)
     {
         aimCol = Mathf.Clamp(col, 0, 2);
@@ -685,6 +705,42 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         forceKeeperTestShot = false;
         SetStatus("Test complete");
+    }
+
+    private IEnumerator TestTopKeeperZones()
+    {
+        if (shooting)
+        {
+            yield break;
+        }
+
+        for (int col = 0; col < 3; col++)
+        {
+            SetAimGrid(col, 0);
+            forceKeeperTestShot = true;
+            forcedKeeperCol = col;
+            forcedKeeperRow = 0;
+            forcedKeeperSave = true;
+            SetStatus("TEST TOP " + GridName(col, 0));
+            Shoot();
+            float shotWaitStarted = Time.realtimeSinceStartup;
+            while (shooting)
+            {
+                if (Time.realtimeSinceStartup - shotWaitStarted > 5.8f)
+                {
+                    ResetShot();
+                    SetStatus("TEST TOP timeout " + GridName(col, 0));
+                    break;
+                }
+
+                yield return null;
+            }
+
+            yield return new WaitForSecondsRealtime(0.2f);
+        }
+
+        forceKeeperTestShot = false;
+        SetStatus("Top test complete");
     }
 
     private IEnumerator RunUp(Vector3 from, Vector3 to, float duration)
@@ -2429,6 +2485,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         EnsureTestAllButton(canvas.transform);
+        EnsureTestTopButton(canvas.transform);
         gridObject.transform.SetAsLastSibling();
         UpdateGoalGridOverlay();
     }
@@ -2522,6 +2579,54 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         text.text = "TEST 9";
         text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         text.fontSize = 14;
+        text.fontStyle = FontStyle.Bold;
+        text.alignment = TextAnchor.MiddleCenter;
+        text.color = new Color(1f, 0.92f, 0.16f);
+        text.raycastTarget = false;
+
+        RectTransform textRect = textObject.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.offsetMin = Vector2.zero;
+        textRect.offsetMax = Vector2.zero;
+    }
+
+    private void EnsureTestTopButton(Transform parent)
+    {
+        Transform existing = parent.Find("Test Top Keeper Zones Button");
+        if (existing != null)
+        {
+            Destroy(existing.gameObject);
+        }
+
+        GameObject buttonObject = new GameObject("Test Top Keeper Zones Button");
+        buttonObject.transform.SetParent(parent, false);
+
+        Image image = buttonObject.AddComponent<Image>();
+        image.color = new Color(0.04f, 0.04f, 0.04f, 0.76f);
+
+        Button button = buttonObject.AddComponent<Button>();
+        ColorBlock colors = button.colors;
+        colors.normalColor = new Color(0.04f, 0.04f, 0.04f, 0.76f);
+        colors.highlightedColor = new Color(0.12f, 0.12f, 0.12f, 0.9f);
+        colors.pressedColor = new Color(0.95f, 0.12f, 0.08f, 0.9f);
+        colors.selectedColor = colors.highlightedColor;
+        button.colors = colors;
+        button.onClick.AddListener(RunTopKeeperZoneTest);
+
+        RectTransform rect = buttonObject.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(1f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(1f, 1f);
+        rect.anchoredPosition = new Vector2(-18f, -118f);
+        rect.sizeDelta = new Vector2(92f, 28f);
+
+        GameObject textObject = new GameObject("Label");
+        textObject.transform.SetParent(buttonObject.transform, false);
+        Text text = textObject.AddComponent<Text>();
+        text.text = "TEST TOP";
+        text.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        text.fontSize = 13;
         text.fontStyle = FontStyle.Bold;
         text.alignment = TextAnchor.MiddleCenter;
         text.color = new Color(1f, 0.92f, 0.16f);
