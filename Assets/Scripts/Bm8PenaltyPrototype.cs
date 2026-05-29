@@ -1446,6 +1446,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float hold = launch * (1f - recover);
         float snap = Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI);
         float contactPunch = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.34f, 0.62f, t)) * Mathf.PI);
+        float readStep = Smooth(Mathf.Clamp01(Mathf.InverseLerp(0f, 0.18f, t)));
+        float anticipation = readStep * (1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.2f, 0.38f, t))));
         if (top)
         {
             coil = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0f, 0.18f, t)) * Mathf.PI);
@@ -1453,31 +1455,32 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             recover = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.76f, 1f, t));
             hold = launch * (1f - recover);
             contactPunch = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.34f, 0.5f, t)) * Mathf.PI);
+            anticipation = readStep * (1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.18f, 0.34f, t))));
         }
 
-        float x = -visualSide * 0.12f * coil + visualSide * (top ? 0.78f : middle ? 1.02f : 1.18f) * hold + visualSide * 0.1f * contactPunch;
-        float y = -0.14f * coil + (top ? 0.36f : middle ? 0.16f : -0.34f) * hold + 0.08f * snap;
-        float z = -0.08f * coil + (top ? -0.1f : middle ? -0.3f : -0.56f) * hold - 0.1f * contactPunch;
+        float x = -visualSide * 0.16f * anticipation - visualSide * 0.12f * coil + visualSide * (top ? 0.78f : middle ? 1.02f : 1.18f) * hold + visualSide * 0.1f * contactPunch;
+        float y = -0.2f * anticipation - 0.14f * coil + (top ? 0.36f : middle ? 0.16f : -0.34f) * hold + 0.08f * snap;
+        float z = 0.08f * anticipation - 0.08f * coil + (top ? -0.1f : middle ? -0.3f : -0.56f) * hold - 0.1f * contactPunch;
         if (top)
         {
-            x = -visualSide * 0.08f * coil + visualSide * 0.92f * hold + visualSide * 0.06f * contactPunch;
-            y = -0.1f * coil + 0.62f * hold + 0.06f * snap;
-            z = -0.06f * coil - 0.18f * hold - 0.06f * contactPunch;
+            x = -visualSide * 0.1f * anticipation - visualSide * 0.08f * coil + visualSide * 0.92f * hold + visualSide * 0.06f * contactPunch;
+            y = -0.16f * anticipation - 0.1f * coil + 0.62f * hold + 0.06f * snap;
+            z = 0.06f * anticipation - 0.06f * coil - 0.18f * hold - 0.06f * contactPunch;
         }
         if (side == 0f)
         {
             x = 0f;
-            y = -0.12f * coil + (top ? 0.5f : middle ? 0.12f : -0.18f) * hold + 0.07f * snap;
-            z = -0.1f * coil + (top ? -0.26f : middle ? -0.48f : -0.56f) * hold - 0.1f * contactPunch;
+            y = -0.2f * anticipation - 0.12f * coil + (top ? 0.5f : middle ? 0.12f : -0.18f) * hold + 0.07f * snap;
+            z = 0.07f * anticipation - 0.1f * coil + (top ? -0.26f : middle ? -0.48f : -0.56f) * hold - 0.1f * contactPunch;
         }
 
         importedKeeperActionOffsetLocal = new Vector3(x, y, z);
-        float pitch = -7f * coil + (top ? -8f : bottom ? 20f : -8f) * hold + (bottom ? 10f : -4f) * contactPunch;
-        float roll = side == 0f ? 0f : -visualSide * ((top ? 10f : middle ? 38f : 48f) * hold + (top ? 3f : 8f) * contactPunch);
+        float pitch = 10f * anticipation - 7f * coil + (top ? -8f : bottom ? 20f : -8f) * hold + (bottom ? 10f : -4f) * contactPunch;
+        float roll = side == 0f ? 0f : visualSide * 6f * anticipation - visualSide * ((top ? 10f : middle ? 38f : 48f) * hold + (top ? 3f : 8f) * contactPunch);
         if (top)
         {
-            pitch = -5f * coil - 8f * hold - 3f * contactPunch;
-            roll = side == 0f ? 0f : -visualSide * (7f * hold + 2f * contactPunch);
+            pitch = 7f * anticipation - 5f * coil - 8f * hold - 3f * contactPunch;
+            roll = side == 0f ? 0f : visualSide * 4f * anticipation - visualSide * (7f * hold + 2f * contactPunch);
         }
         importedKeeperActionRotationOffset = Quaternion.Euler(pitch, 0f, roll);
     }
