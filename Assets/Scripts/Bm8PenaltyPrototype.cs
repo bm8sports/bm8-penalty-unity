@@ -89,6 +89,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private int forcedKeeperCol = 1;
     private int forcedKeeperRow = 1;
     private bool forcedKeeperSave = true;
+    private bool showDebugControls;
     private float shootingStartedRealtime;
     private double shootingStartedWallClock;
     private Vector3 importedKeeperAnchorLocalPosition = new Vector3(0f, 0f, -0.02f);
@@ -165,6 +166,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         if (shooting)
         {
+            return;
+        }
+
+        if (Input.GetKeyDown(KeyCode.F10))
+        {
+            showDebugControls = !showDebugControls;
+            SetStatus(showDebugControls ? "Debug controls" : "Tap goal");
             return;
         }
 
@@ -342,6 +350,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void DrawRuntimeTestButton()
     {
+        if (!showDebugControls)
+        {
+            return;
+        }
+
         Rect buttonRect = new Rect(Screen.width - 114f, 82f, 92f, 30f);
         GUIStyle style = new GUIStyle(GUI.skin.button)
         {
