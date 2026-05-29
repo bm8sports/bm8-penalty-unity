@@ -76,6 +76,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Material ballShadowMaterial;
     private Transform saveImpactFlash;
     private Material saveImpactMaterial;
+    private Transform resultGoalFlash;
+    private Material resultGoalFlashMaterial;
+    private float resultGoalFlashUntil;
+    private Color resultGoalFlashColor = Color.white;
     private RectTransform goalGrid;
     private int aimCol = 1;
     private int aimRow = 1;
@@ -143,6 +147,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         SetupBallTrail();
         EnsureBallShadow();
         EnsureSaveImpactFlash();
+        EnsureResultGoalFlash();
         HideSolidGoalNetBackdrop();
         EnsureArcadeBackdrop();
         CreateNineTargetGrid();
@@ -161,6 +166,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         UpdateGoalGridOverlay();
+        UpdateResultGoalFlash();
         RunShotWatchdog();
 
         if (shooting && Time.realtimeSinceStartup - shootingStartedRealtime > ShotWatchdogSeconds)
@@ -423,6 +429,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         resultBanner = message;
         resultBannerColor = color;
         resultBannerUntil = Time.time + 1.45f;
+        ShowResultGoalFlash(color);
     }
 
     private bool TryShootFromMouse(Vector3 mousePosition)
@@ -604,6 +611,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideResultGoalFlash();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -630,6 +638,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideResultGoalFlash();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -1055,6 +1064,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideResultGoalFlash();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -1077,6 +1087,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideResultGoalFlash();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -2452,6 +2463,83 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (saveImpactFlash != null)
         {
             saveImpactFlash.gameObject.SetActive(false);
+        }
+    }
+
+    private void EnsureResultGoalFlash()
+    {
+        Transform existing = transform.Find("BM8 Result Goal Flash");
+        resultGoalFlash = existing;
+        if (resultGoalFlash == null)
+        {
+            GameObject flash = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            flash.name = "BM8 Result Goal Flash";
+            resultGoalFlash = flash.transform;
+            resultGoalFlash.SetParent(transform, false);
+
+            Collider collider = flash.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Destroy(collider);
+            }
+        }
+
+        resultGoalFlash.position = new Vector3(0f, 1.52f, 5.02f);
+        resultGoalFlash.rotation = Quaternion.Euler(0f, 180f, 0f);
+        resultGoalFlash.localScale = new Vector3(5.5f, 1.75f, 1f);
+
+        Renderer renderer = resultGoalFlash.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            resultGoalFlashMaterial = new Material(Shader.Find("Sprites/Default"));
+            resultGoalFlashMaterial.color = new Color(1f, 1f, 1f, 0f);
+            renderer.sharedMaterial = resultGoalFlashMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        HideResultGoalFlash();
+    }
+
+    private void ShowResultGoalFlash(Color color)
+    {
+        if (resultGoalFlash == null)
+        {
+            EnsureResultGoalFlash();
+        }
+
+        resultGoalFlashColor = color;
+        resultGoalFlashUntil = Time.time + 0.72f;
+        UpdateResultGoalFlash();
+    }
+
+    private void UpdateResultGoalFlash()
+    {
+        if (resultGoalFlash == null || resultGoalFlashMaterial == null)
+        {
+            return;
+        }
+
+        float remaining = resultGoalFlashUntil - Time.time;
+        if (remaining <= 0f)
+        {
+            HideResultGoalFlash();
+            return;
+        }
+
+        resultGoalFlash.gameObject.SetActive(true);
+        float t = Mathf.Clamp01(remaining / 0.72f);
+        float pulse = Mathf.Sin(t * Mathf.PI);
+        float alpha = Mathf.Lerp(0.02f, 0.26f, pulse);
+        resultGoalFlash.localScale = new Vector3(Mathf.Lerp(5.08f, 5.75f, pulse), Mathf.Lerp(1.42f, 1.85f, pulse), 1f);
+        resultGoalFlashMaterial.color = new Color(resultGoalFlashColor.r, resultGoalFlashColor.g, resultGoalFlashColor.b, alpha);
+    }
+
+    private void HideResultGoalFlash()
+    {
+        if (resultGoalFlash != null)
+        {
+            resultGoalFlash.gameObject.SetActive(false);
         }
     }
 
