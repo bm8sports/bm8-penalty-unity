@@ -68,6 +68,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Renderer keeperSpriteRenderer;
     private Material keeperSpriteMaterial;
     private TrailRenderer ballTrail;
+    private Transform saveImpactFlash;
+    private Material saveImpactMaterial;
     private RectTransform goalGrid;
     private int aimCol = 1;
     private int aimRow = 1;
@@ -131,6 +133,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         EnsureKeeperGloves();
         HideKeeperMarkerGlovesWhenImportedKeeperIsActive();
         SetupBallTrail();
+        EnsureSaveImpactFlash();
         HideSolidGoalNetBackdrop();
         EnsureArcadeBackdrop();
         CreateNineTargetGrid();
@@ -557,6 +560,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             ballTrail.Clear();
         }
+        HideSaveImpactFlash();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -580,6 +584,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             ballTrail.Clear();
         }
+        HideSaveImpactFlash();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -952,6 +957,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             ballTrail.Clear();
         }
+        HideSaveImpactFlash();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -971,6 +977,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             ballTrail.Clear();
         }
+        HideSaveImpactFlash();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -1055,6 +1062,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
             ball.position = position;
             float contactFlash = saved ? Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(loadTime, punchTime, t)) * Mathf.PI) : 0f;
+            UpdateSaveImpactFlash(saved ? contactFlash : 0f, contact);
             ball.Rotate(new Vector3(saved ? 1760f : 920f, saved ? -720f : 260f, side * 220f + reboundSide * (saved ? 620f : 0f)) * Time.unscaledDeltaTime, Space.World);
             Vector3 cameraBase = Vector3.Lerp(ReadyCameraPosition(), new Vector3(aimX * 0.18f, 2.15f, -4.55f), Smooth(t));
             float shake = Mathf.Sin(t * Mathf.PI * 20f) * Mathf.Sin(t * Mathf.PI) * 0.035f + contactFlash * 0.08f;
@@ -1062,6 +1070,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             cameraRig.rotation = Quaternion.Euler(7.5f + Mathf.Sin(t * Mathf.PI) * 2.4f - contactFlash * 1.4f, aimX * 1.4f + reboundSide * contactFlash * 0.8f, 0f);
             yield return null;
         }
+
+        HideSaveImpactFlash();
     }
 
     private void CacheBodyParts()
@@ -2210,6 +2220,77 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         ballTrail.startColor = new Color(1f, 0.92f, 0.25f, 0.95f);
         ballTrail.endColor = new Color(1f, 0.92f, 0.25f, 0f);
         ballTrail.Clear();
+    }
+
+    private void EnsureSaveImpactFlash()
+    {
+        Transform existing = transform.Find("BM8 Save Impact Flash");
+        saveImpactFlash = existing;
+        if (saveImpactFlash == null)
+        {
+            GameObject flash = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            flash.name = "BM8 Save Impact Flash";
+            saveImpactFlash = flash.transform;
+            saveImpactFlash.SetParent(transform, false);
+            Collider collider = flash.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Destroy(collider);
+            }
+        }
+
+        Renderer renderer = saveImpactFlash.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            saveImpactMaterial = new Material(Shader.Find("Sprites/Default"));
+            saveImpactMaterial.color = new Color(1f, 0.9f, 0.08f, 0f);
+            renderer.sharedMaterial = saveImpactMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        HideSaveImpactFlash();
+    }
+
+    private void UpdateSaveImpactFlash(float intensity, Vector3 contact)
+    {
+        if (saveImpactFlash == null)
+        {
+            return;
+        }
+
+        float visible = Mathf.Clamp01(intensity);
+        if (visible <= 0.001f)
+        {
+            HideSaveImpactFlash();
+            return;
+        }
+
+        saveImpactFlash.gameObject.SetActive(true);
+        saveImpactFlash.position = contact + new Vector3(0f, 0f, -0.08f);
+        if (cameraRig != null)
+        {
+            Vector3 toCamera = saveImpactFlash.position - cameraRig.position;
+            if (toCamera.sqrMagnitude > 0.0001f)
+            {
+                saveImpactFlash.rotation = Quaternion.LookRotation(toCamera.normalized, Vector3.up);
+            }
+        }
+
+        float size = Mathf.Lerp(0.18f, keeperRow == 0 ? 0.58f : 0.42f, visible);
+        saveImpactFlash.localScale = new Vector3(size, size, 1f);
+        if (saveImpactMaterial != null)
+        {
+            saveImpactMaterial.color = new Color(1f, 0.92f, 0.1f, Mathf.Lerp(0.15f, 0.72f, visible));
+        }
+    }
+
+    private void HideSaveImpactFlash()
+    {
+        if (saveImpactFlash != null)
+        {
+            saveImpactFlash.gameObject.SetActive(false);
+        }
     }
 
     private void EnsureArcadeBackdrop()
