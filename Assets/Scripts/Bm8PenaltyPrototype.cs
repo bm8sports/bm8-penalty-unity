@@ -46,6 +46,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     [SerializeField] private RuntimeAnimatorController keeperHitTopRightFailController;
 
     private Vector3 ballStart;
+    private Vector3 ballBaseScale;
     private Vector3 playerStart;
     private Vector3 keeperStart;
     private Transform strikerLeftLeg;
@@ -105,6 +106,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private void Awake()
     {
         ballStart = ball.position;
+        ballBaseScale = ball.localScale;
         playerStart = player.position;
         keeperStart = keeper.position;
         CacheBodyParts();
@@ -576,6 +578,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         ClearImportedKeeperActionOffset();
         ball.position = ballStart;
         ball.rotation = Quaternion.identity;
+        ball.localScale = ballBaseScale;
         if (ballTrail != null)
         {
             ballTrail.Clear();
@@ -600,6 +603,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         shootingStartedWallClock = WallClockSeconds();
         ball.position = ballStart;
         ball.rotation = Quaternion.identity;
+        ball.localScale = ballBaseScale;
         if (ballTrail != null)
         {
             ballTrail.Clear();
@@ -997,6 +1001,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float t = Smooth(Mathf.Clamp01(elapsed / duration));
             ball.position = Vector3.Lerp(ballFrom, ballStart, t);
             ball.rotation = Quaternion.Slerp(ballRotationFrom, Quaternion.identity, t);
+            ball.localScale = Vector3.Lerp(ball.localScale, ballBaseScale, t);
             player.position = Vector3.Lerp(playerFrom, playerStart, t);
             player.rotation = Quaternion.Slerp(playerRotationFrom, Quaternion.identity, t);
             keeper.position = Vector3.Lerp(keeperFrom, keeperStart, t);
@@ -1009,6 +1014,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         ball.position = ballStart;
         ball.rotation = Quaternion.identity;
+        ball.localScale = ballBaseScale;
         if (ballTrail != null)
         {
             ballTrail.Clear();
@@ -1029,6 +1035,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         ball.position = ballStart;
         ball.rotation = Quaternion.identity;
+        ball.localScale = ballBaseScale;
         if (ballTrail != null)
         {
             ballTrail.Clear();
@@ -1117,7 +1124,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
 
             ball.position = position;
-            float contactFlash = saved ? Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(loadTime, punchTime, t)) * Mathf.PI) : 0f;
+            float contactFlash = saved ? Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(contactTime, punchTime, t)) * Mathf.PI) : 0f;
+            ApplyBallImpactScale(contactFlash);
             UpdateSaveImpactFlash(saved ? contactFlash : 0f, contact);
             ball.Rotate(new Vector3(saved ? 1760f : 920f, saved ? -720f : 260f, side * 220f + reboundSide * (saved ? 620f : 0f)) * Time.unscaledDeltaTime, Space.World);
             Vector3 cameraBase = Vector3.Lerp(ReadyCameraPosition(), new Vector3(aimX * 0.18f, 2.15f, -4.55f), Smooth(t));
@@ -1128,6 +1136,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         HideSaveImpactFlash();
+        ball.localScale = ballBaseScale;
     }
 
     private void CacheBodyParts()
@@ -2347,6 +2356,25 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             saveImpactFlash.gameObject.SetActive(false);
         }
+    }
+
+    private void ApplyBallImpactScale(float intensity)
+    {
+        if (ball == null)
+        {
+            return;
+        }
+
+        float hit = Mathf.Clamp01(intensity);
+        if (hit <= 0.001f)
+        {
+            ball.localScale = ballBaseScale;
+            return;
+        }
+
+        float squash = Mathf.Lerp(1f, 0.82f, hit);
+        float stretch = Mathf.Lerp(1f, 1.18f, hit);
+        ball.localScale = new Vector3(ballBaseScale.x * stretch, ballBaseScale.y * squash, ballBaseScale.z * stretch);
     }
 
     private void EnsureArcadeBackdrop()
