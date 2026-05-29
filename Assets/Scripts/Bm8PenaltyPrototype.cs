@@ -667,7 +667,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ResetPose();
         }
         yield return new WaitForSeconds(save ? keeperRow == 0 ? 1.65f : 1.35f : 0.9f);
-        ForceReadyReset();
+        yield return ReturnAllToReady(0.28f);
         SetStatus("Tap goal");
         shooting = false;
     }
