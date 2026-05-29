@@ -403,7 +403,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         resultBanner = message;
         resultBannerColor = color;
-        resultBannerUntil = Time.time + 1.1f;
+        resultBannerUntil = Time.time + 1.45f;
     }
 
     private bool TryShootFromMouse(Vector3 mousePosition)
@@ -1133,10 +1133,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ApplyBallImpactScale(contactFlash);
             UpdateSaveImpactFlash(saved ? contactFlash : 0f, contact);
             ball.Rotate(new Vector3(saved ? 1760f : 920f, saved ? -720f : 260f, side * 220f + reboundSide * (saved ? 620f : 0f)) * Time.unscaledDeltaTime, Space.World);
-            Vector3 cameraBase = Vector3.Lerp(ReadyCameraPosition(), new Vector3(aimX * 0.18f, 2.15f, -4.55f), Smooth(t));
+            Vector3 cameraBase = ShotCameraPosition(t, contactFlash, saved, reboundSide);
             float shake = Mathf.Sin(t * Mathf.PI * 20f) * Mathf.Sin(t * Mathf.PI) * 0.035f + contactFlash * 0.08f;
             cameraRig.position = cameraBase + new Vector3(shake, shake * 0.45f, 0f);
-            cameraRig.rotation = Quaternion.Euler(7.5f + Mathf.Sin(t * Mathf.PI) * 2.4f - contactFlash * 1.4f, aimX * 1.4f + reboundSide * contactFlash * 0.8f, 0f);
+            cameraRig.rotation = ShotCameraRotation(t, contactFlash, reboundSide);
             yield return null;
         }
 
@@ -3086,6 +3086,25 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static Quaternion ReadyCameraRotation()
     {
         return UseArcadeVideoCamera ? Quaternion.Euler(6.5f, 0f, 0f) : Quaternion.Euler(13.5f, 0f, 0f);
+    }
+
+    private Vector3 ShotCameraPosition(float t, float impact, bool saved, float reboundSide)
+    {
+        Vector3 ready = ReadyCameraPosition();
+        Vector3 follow = new Vector3(aimX * 0.16f, saved ? 2.12f : 2.08f, saved ? -4.36f : -4.52f);
+        Vector3 camera = Vector3.Lerp(ready, follow, Smooth(t));
+        camera.x += reboundSide * impact * 0.08f;
+        camera.y += impact * 0.04f;
+        camera.z += impact * 0.28f;
+        return camera;
+    }
+
+    private Quaternion ShotCameraRotation(float t, float impact, float reboundSide)
+    {
+        float basePitch = Mathf.Lerp(6.5f, 8.25f, Smooth(t));
+        float shotLift = Mathf.Sin(t * Mathf.PI) * 1.85f;
+        float yaw = aimX * 1.25f + reboundSide * impact * 0.95f;
+        return Quaternion.Euler(basePitch + shotLift - impact * 1.25f, yaw, 0f);
     }
 
     private void SetStatus(string message)
