@@ -72,6 +72,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Renderer keeperSpriteRenderer;
     private Material keeperSpriteMaterial;
     private TrailRenderer ballTrail;
+    private Transform ballShadow;
+    private Material ballShadowMaterial;
     private Transform saveImpactFlash;
     private Material saveImpactMaterial;
     private RectTransform goalGrid;
@@ -139,6 +141,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         EnsureKeeperGloves();
         HideKeeperMarkerGlovesWhenImportedKeeperIsActive();
         SetupBallTrail();
+        EnsureBallShadow();
         EnsureSaveImpactFlash();
         HideSolidGoalNetBackdrop();
         EnsureArcadeBackdrop();
@@ -595,6 +598,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         ball.position = ballStart;
         ball.rotation = Quaternion.identity;
         ball.localScale = ballBaseScale;
+        UpdateBallShadow();
         if (ballTrail != null)
         {
             ballTrail.Clear();
@@ -620,6 +624,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         ball.position = ballStart;
         ball.rotation = Quaternion.identity;
         ball.localScale = ballBaseScale;
+        UpdateBallShadow();
         if (ballTrail != null)
         {
             ballTrail.Clear();
@@ -1020,6 +1025,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ball.position = Vector3.Lerp(ballFrom, ballStart, t);
             ball.rotation = Quaternion.Slerp(ballRotationFrom, Quaternion.identity, t);
             ball.localScale = Vector3.Lerp(ballScaleFrom, ballBaseScale, t);
+            UpdateBallShadow();
             player.position = Vector3.Lerp(playerFrom, playerStart, t);
             player.rotation = Quaternion.Slerp(playerRotationFrom, Quaternion.identity, t);
             keeper.position = Vector3.Lerp(keeperFrom, keeperStart, t);
@@ -1036,6 +1042,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         ball.position = ballStart;
         ball.rotation = Quaternion.identity;
         ball.localScale = ballBaseScale;
+        UpdateBallShadow();
         if (ballTrail != null)
         {
             ballTrail.Clear();
@@ -1057,6 +1064,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         ball.position = ballStart;
         ball.rotation = Quaternion.identity;
         ball.localScale = ballBaseScale;
+        UpdateBallShadow();
         if (ballTrail != null)
         {
             ballTrail.Clear();
@@ -1145,6 +1153,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
 
             ball.position = position;
+            UpdateBallShadow();
             float contactFlash = saved ? Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(contactTime, punchTime, t)) * Mathf.PI) : 0f;
             ApplyBallImpactScale(contactFlash);
             UpdateSaveImpactFlash(saved ? contactFlash : 0f, contact);
@@ -1158,6 +1167,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         HideSaveImpactFlash();
         ball.localScale = ballBaseScale;
+        UpdateBallShadow();
     }
 
     private void CacheBodyParts()
@@ -2306,6 +2316,60 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         ballTrail.startColor = new Color(1f, 0.92f, 0.25f, 0.95f);
         ballTrail.endColor = new Color(1f, 0.92f, 0.25f, 0f);
         ballTrail.Clear();
+    }
+
+    private void EnsureBallShadow()
+    {
+        Transform existing = transform.Find("BM8 Ball Shadow");
+        if (existing == null)
+        {
+            GameObject shadow = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            shadow.name = "BM8 Ball Shadow";
+            ballShadow = shadow.transform;
+            ballShadow.SetParent(transform, false);
+
+            Collider collider = shadow.GetComponent<Collider>();
+            if (collider != null)
+            {
+                collider.enabled = false;
+            }
+
+            Renderer renderer = shadow.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                ballShadowMaterial = new Material(Shader.Find("Sprites/Default"));
+                ballShadowMaterial.color = new Color(0f, 0f, 0f, 0.34f);
+                renderer.sharedMaterial = ballShadowMaterial;
+            }
+        }
+        else
+        {
+            ballShadow = existing;
+            Renderer renderer = ballShadow.GetComponent<Renderer>();
+            ballShadowMaterial = renderer != null ? renderer.sharedMaterial : null;
+        }
+
+        UpdateBallShadow();
+    }
+
+    private void UpdateBallShadow()
+    {
+        if (ballShadow == null || ball == null)
+        {
+            return;
+        }
+
+        float height = Mathf.Max(0f, ball.position.y - 0.22f);
+        float fade = Mathf.Clamp01(1f - height / 3.2f);
+        float size = Mathf.Lerp(0.34f, 0.82f, fade);
+        ballShadow.position = new Vector3(ball.position.x, 0.045f, ball.position.z + 0.03f);
+        ballShadow.rotation = Quaternion.Euler(90f, 0f, 0f);
+        ballShadow.localScale = new Vector3(size * 1.35f, size * 0.52f, 1f);
+
+        if (ballShadowMaterial != null)
+        {
+            ballShadowMaterial.color = new Color(0f, 0f, 0f, Mathf.Lerp(0.06f, 0.34f, fade));
+        }
     }
 
     private void EnsureSaveImpactFlash()
