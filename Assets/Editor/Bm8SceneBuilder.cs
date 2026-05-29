@@ -247,14 +247,6 @@ public static class Bm8SceneBuilder
         var hint = CreateText(canvasObject.transform, "Hint", "", new Vector2(0.5f, 1f), new Vector2(0f, -90f), 14);
         hint.color = new Color(0.88f, 0.95f, 1f);
 
-        var test = CreateButton(canvasObject.transform, "TEST 9", new Vector2(1f, 1f), new Vector2(-64f, -84f));
-        test.GetComponent<Image>().color = new Color(0.04f, 0.04f, 0.04f, 0.76f);
-        test.GetComponentInChildren<Text>().color = new Color(1f, 0.92f, 0.16f);
-        test.onClick.AddListener(prototype.RunKeeperZoneTest);
-
-        var reset = CreateButton(canvasObject.transform, "Reset", new Vector2(1f, 0f), new Vector2(-78f, 46f));
-        reset.onClick.AddListener(prototype.ResetShot);
-
         var powerObject = new GameObject("Power Slider");
         powerObject.transform.SetParent(canvasObject.transform, false);
         var slider = powerObject.AddComponent<Slider>();
