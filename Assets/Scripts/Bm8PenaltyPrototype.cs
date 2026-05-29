@@ -829,7 +829,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 yield return null;
             }
 
-            ClearImportedKeeperActionOffset();
             keeper.position = keeperStart;
             keeper.rotation = Quaternion.identity;
             AnchorImportedKeeperVisibleModel();
@@ -986,11 +985,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private IEnumerator ReturnAllToReady(float duration)
     {
         Vector3 ballFrom = ball.position;
+        Vector3 ballScaleFrom = ball.localScale;
         Quaternion ballRotationFrom = ball.rotation;
         Vector3 playerFrom = player.position;
         Quaternion playerRotationFrom = player.rotation;
         Vector3 keeperFrom = keeper.position;
         Quaternion keeperRotationFrom = keeper.rotation;
+        Vector3 importedOffsetFrom = importedKeeperActionOffsetLocal;
+        Quaternion importedRotationFrom = importedKeeperActionRotationOffset;
         Vector3 cameraFrom = cameraRig.position;
         Quaternion cameraRotationFrom = cameraRig.rotation;
 
@@ -1001,11 +1003,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float t = Smooth(Mathf.Clamp01(elapsed / duration));
             ball.position = Vector3.Lerp(ballFrom, ballStart, t);
             ball.rotation = Quaternion.Slerp(ballRotationFrom, Quaternion.identity, t);
-            ball.localScale = Vector3.Lerp(ball.localScale, ballBaseScale, t);
+            ball.localScale = Vector3.Lerp(ballScaleFrom, ballBaseScale, t);
             player.position = Vector3.Lerp(playerFrom, playerStart, t);
             player.rotation = Quaternion.Slerp(playerRotationFrom, Quaternion.identity, t);
             keeper.position = Vector3.Lerp(keeperFrom, keeperStart, t);
             keeper.rotation = Quaternion.Slerp(keeperRotationFrom, Quaternion.identity, t);
+            importedKeeperActionOffsetLocal = Vector3.Lerp(importedOffsetFrom, Vector3.zero, t);
+            importedKeeperActionRotationOffset = Quaternion.Slerp(importedRotationFrom, Quaternion.identity, t);
+            AnchorImportedKeeperVisibleModel();
             cameraRig.position = Vector3.Lerp(cameraFrom, ReadyCameraPosition(), t);
             cameraRig.rotation = Quaternion.Slerp(cameraRotationFrom, ReadyCameraRotation(), t);
             BlendKeeperPoseToReady(t);
