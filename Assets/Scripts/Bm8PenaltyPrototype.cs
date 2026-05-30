@@ -76,6 +76,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Material ballShadowMaterial;
     private Transform saveImpactFlash;
     private Material saveImpactMaterial;
+    private Transform saveContactStreak;
+    private Material saveContactStreakMaterial;
     private Transform resultGoalFlash;
     private Material resultGoalFlashMaterial;
     private float resultGoalFlashUntil;
@@ -147,6 +149,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         SetupBallTrail();
         EnsureBallShadow();
         EnsureSaveImpactFlash();
+        EnsureSaveContactStreak();
         EnsureResultGoalFlash();
         HideSolidGoalNetBackdrop();
         EnsureArcadeBackdrop();
@@ -611,6 +614,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideSaveContactStreak();
         HideResultGoalFlash();
 
         player.position = playerStart;
@@ -638,6 +642,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideSaveContactStreak();
         HideResultGoalFlash();
 
         player.position = playerStart;
@@ -1064,6 +1069,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideSaveContactStreak();
         HideResultGoalFlash();
 
         player.position = playerStart;
@@ -1087,6 +1093,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideSaveContactStreak();
         HideResultGoalFlash();
 
         player.position = playerStart;
@@ -1177,6 +1184,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float contactFlash = saved ? Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(contactTime, punchTime, t)) * Mathf.PI) : 0f;
             ApplyBallImpactScale(contactFlash);
             UpdateSaveImpactFlash(saved ? contactFlash : 0f, contact);
+            UpdateSaveContactStreak(saved ? contactFlash : 0f, contact, reboundSide);
             ball.Rotate(new Vector3(saved ? 1760f : 920f, saved ? -720f : 260f, side * 220f + reboundSide * (saved ? 620f : 0f)) * Time.unscaledDeltaTime, Space.World);
             Vector3 cameraBase = ShotCameraPosition(t, contactFlash, saved, reboundSide);
             float shake = Mathf.Sin(t * Mathf.PI * 20f) * Mathf.Sin(t * Mathf.PI) * 0.035f + contactFlash * 0.08f;
@@ -1186,6 +1194,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         HideSaveImpactFlash();
+        HideSaveContactStreak();
         ball.localScale = ballBaseScale;
         UpdateBallShadow();
     }
@@ -2465,6 +2474,79 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (saveImpactFlash != null)
         {
             saveImpactFlash.gameObject.SetActive(false);
+        }
+    }
+
+    private void EnsureSaveContactStreak()
+    {
+        Transform existing = transform.Find("BM8 Save Contact Streak");
+        saveContactStreak = existing;
+        if (saveContactStreak == null)
+        {
+            GameObject streak = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            streak.name = "BM8 Save Contact Streak";
+            saveContactStreak = streak.transform;
+            saveContactStreak.SetParent(transform, false);
+
+            Collider collider = streak.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Destroy(collider);
+            }
+        }
+
+        Renderer renderer = saveContactStreak.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            saveContactStreakMaterial = new Material(Shader.Find("Sprites/Default"));
+            saveContactStreakMaterial.color = new Color(1f, 0.98f, 0.62f, 0f);
+            renderer.sharedMaterial = saveContactStreakMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        HideSaveContactStreak();
+    }
+
+    private void UpdateSaveContactStreak(float intensity, Vector3 contact, float reboundSide)
+    {
+        if (saveContactStreak == null)
+        {
+            return;
+        }
+
+        float visible = Mathf.Clamp01(intensity);
+        if (visible <= 0.001f)
+        {
+            HideSaveContactStreak();
+            return;
+        }
+
+        saveContactStreak.gameObject.SetActive(true);
+        saveContactStreak.position = contact + new Vector3(reboundSide * 0.15f, keeperRow == 0 ? 0.05f : 0.02f, -0.14f);
+        if (cameraRig != null)
+        {
+            Vector3 toCamera = saveContactStreak.position - cameraRig.position;
+            if (toCamera.sqrMagnitude > 0.0001f)
+            {
+                saveContactStreak.rotation = Quaternion.LookRotation(toCamera.normalized, Vector3.up) * Quaternion.Euler(0f, 0f, -reboundSide * 16f);
+            }
+        }
+
+        float length = Mathf.Lerp(0.28f, keeperRow == 0 ? 0.92f : 0.72f, visible);
+        float thickness = Mathf.Lerp(0.035f, keeperRow == 0 ? 0.09f : 0.075f, visible);
+        saveContactStreak.localScale = new Vector3(length, thickness, 1f);
+        if (saveContactStreakMaterial != null)
+        {
+            saveContactStreakMaterial.color = new Color(1f, 0.98f, 0.58f, Mathf.Lerp(0.1f, 0.78f, visible));
+        }
+    }
+
+    private void HideSaveContactStreak()
+    {
+        if (saveContactStreak != null)
+        {
+            saveContactStreak.gameObject.SetActive(false);
         }
     }
 
