@@ -275,14 +275,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         if (keeperRow == 0)
         {
-            Vector3 contact = AaKeeperContactWorld() + new Vector3(0f, 0.2f, -0.1f);
             float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
             float reachIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.14f, 0.44f, importedKeeperActionT));
             float reachOut = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.78f, 1f, importedKeeperActionT));
             float weight = reachIn * (1f - reachOut);
-            Vector3 leftTarget = side < 0f ? contact + new Vector3(-0.06f, 0.02f, -0.02f) : contact + new Vector3(-0.24f, -0.04f, -0.02f);
-            Vector3 rightTarget = side > 0f ? contact + new Vector3(0.06f, 0.02f, -0.02f) : contact + new Vector3(0.24f, -0.04f, -0.02f);
-            ApplyKeeperHandIk(leftTarget, rightTarget, weight * 0.86f);
+            Vector3 leftTarget = keeper.TransformPoint(new Vector3(side < 0f ? -0.6f : side > 0f ? 0.08f : -0.2f, side == 0f ? 1.86f : 1.74f, -0.34f));
+            Vector3 rightTarget = keeper.TransformPoint(new Vector3(side > 0f ? 0.6f : side < 0f ? -0.08f : 0.2f, side == 0f ? 1.86f : 1.74f, -0.34f));
+            ApplyKeeperHandIk(leftTarget, rightTarget, weight * 0.48f);
         }
     }
 
@@ -1538,7 +1537,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         keeperVisibleModel.localRotation = importedKeeperAnchorLocalRotation * importedKeeperActionRotationOffset * readyRotation;
         keeperVisibleModel.localScale = importedKeeperAnchorLocalScale;
         ClampImportedKeeperVisibleBounds();
-        PoseImportedKeeperTopTipHands();
     }
 
     private static Vector3 ImportedKeeperReadyMotionOffset()
