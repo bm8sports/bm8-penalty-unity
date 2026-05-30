@@ -1133,9 +1133,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 Mathf.Clamp(contact.y + UnityEngine.Random.Range(0.62f, 1.3f), 1.05f, 3.35f),
                 UnityEngine.Random.Range(-3.45f, -2.35f));
         Vector3 drop = new Vector3(
-            Mathf.Clamp(deflect.x + reboundSide * UnityEngine.Random.Range(0.3f, 0.9f), -3.6f, 3.6f),
-            0.28f,
-            UnityEngine.Random.Range(-3.25f, -2.45f));
+            Mathf.Clamp(deflect.x + reboundSide * UnityEngine.Random.Range(keeperRow == 0 ? 0.7f : 0.38f, keeperRow == 0 ? 1.25f : 0.95f), -3.8f, 3.8f),
+            keeperRow == 0 ? 0.24f : 0.28f,
+            UnityEngine.Random.Range(keeperRow == 0 ? -3.65f : -3.25f, keeperRow == 0 ? -2.85f : -2.45f));
 
         while (elapsed < duration)
         {
@@ -1161,14 +1161,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 else if (t < punchTime)
                 {
                     float outT = (t - loadTime) / (punchTime - loadTime);
-                    position = Vector3.Lerp(palmLoad, deflect, EaseOut(outT, 2.4f));
+                    position = Vector3.Lerp(palmLoad, deflect, EaseOut(outT, keeperRow == 0 ? 3.1f : 2.4f));
                     position.y += Mathf.Sin(outT * Mathf.PI) * (UseAaAnimatedKeeper ? AaDeflectArcHeight() : 1.36f);
                 }
                 else
                 {
                     float fallT = (t - punchTime) / (1f - punchTime);
-                    position = Vector3.Lerp(deflect, drop, Smooth(fallT));
-                    position.y += Mathf.Sin(fallT * Mathf.PI) * 0.22f;
+                    position = Vector3.Lerp(deflect, drop, EaseOut(fallT, keeperRow == 0 ? 1.45f : 1.18f));
+                    position.y += Mathf.Sin(fallT * Mathf.PI) * (keeperRow == 0 ? 0.12f : 0.22f);
                 }
             }
             else
@@ -1185,7 +1185,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ApplyBallImpactScale(contactFlash);
             UpdateSaveImpactFlash(saved ? contactFlash : 0f, contact);
             UpdateSaveContactStreak(saved ? contactFlash : 0f, contact, reboundSide);
-            ball.Rotate(new Vector3(saved ? 1760f : 920f, saved ? -720f : 260f, side * 220f + reboundSide * (saved ? 620f : 0f)) * Time.unscaledDeltaTime, Space.World);
+            float saveSpinBoost = keeperRow == 0 ? 1.22f : 1f;
+            ball.Rotate(new Vector3(saved ? 1760f * saveSpinBoost : 920f, saved ? -720f * saveSpinBoost : 260f, side * 220f + reboundSide * (saved ? 620f * saveSpinBoost : 0f)) * Time.unscaledDeltaTime, Space.World);
             Vector3 cameraBase = ShotCameraPosition(t, contactFlash, saved, reboundSide);
             float shake = Mathf.Sin(t * Mathf.PI * 20f) * Mathf.Sin(t * Mathf.PI) * 0.035f + contactFlash * 0.08f;
             cameraRig.position = cameraBase + new Vector3(shake, shake * 0.45f, 0f);
@@ -3088,9 +3089,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private Vector3 AaDeflectWorld(Vector3 contact, float reboundSide)
     {
-        float sidePush = keeperRow == 0 ? UnityEngine.Random.Range(1.28f, 1.76f) : keeperRow == 2 ? UnityEngine.Random.Range(2.15f, 2.85f) : UnityEngine.Random.Range(2.55f, 3.35f);
-        float upPush = keeperRow == 0 ? UnityEngine.Random.Range(0.68f, 0.98f) : keeperRow == 2 ? UnityEngine.Random.Range(0.22f, 0.5f) : UnityEngine.Random.Range(0.72f, 1.08f);
-        float zPush = keeperRow == 2 ? UnityEngine.Random.Range(-3.45f, -2.85f) : UnityEngine.Random.Range(-3.7f, -2.8f);
+        float sidePush = keeperRow == 0 ? UnityEngine.Random.Range(1.65f, 2.18f) : keeperRow == 2 ? UnityEngine.Random.Range(2.15f, 2.85f) : UnityEngine.Random.Range(2.55f, 3.35f);
+        float upPush = keeperRow == 0 ? UnityEngine.Random.Range(0.36f, 0.62f) : keeperRow == 2 ? UnityEngine.Random.Range(0.22f, 0.5f) : UnityEngine.Random.Range(0.72f, 1.08f);
+        float zPush = keeperRow == 0 ? UnityEngine.Random.Range(-3.95f, -3.25f) : keeperRow == 2 ? UnityEngine.Random.Range(-3.45f, -2.85f) : UnityEngine.Random.Range(-3.7f, -2.8f);
         return new Vector3(
             Mathf.Clamp(contact.x + reboundSide * sidePush, -3.75f, 3.75f),
             Mathf.Clamp(contact.y + upPush, 0.72f, 3.55f),
@@ -3121,7 +3122,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         if (keeperRow == 0)
         {
-            return 0.95f;
+            return 0.46f;
         }
 
         if (keeperRow == 2)
