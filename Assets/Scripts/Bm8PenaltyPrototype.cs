@@ -1221,8 +1221,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float saveSpinBoost = keeperRow == 0 ? 1.22f : 1f;
             ball.Rotate(new Vector3(saved ? 1760f * saveSpinBoost : 920f, saved ? -720f * saveSpinBoost : 260f, side * 220f + reboundSide * (saved ? 620f * saveSpinBoost : 0f)) * Time.unscaledDeltaTime, Space.World);
             Vector3 cameraBase = ShotCameraPosition(t, contactFlash, saved, reboundSide);
-            float shake = Mathf.Sin(t * Mathf.PI * 20f) * Mathf.Sin(t * Mathf.PI) * 0.035f + contactFlash * 0.08f;
-            cameraRig.position = cameraBase + new Vector3(shake, shake * 0.45f, 0f);
+            float saveHitShake = saved ? contactFlash * (keeperRow == 0 ? 0.14f : 0.11f) : 0f;
+            float shake = Mathf.Sin(t * Mathf.PI * 24f) * Mathf.Sin(t * Mathf.PI) * 0.032f + saveHitShake;
+            cameraRig.position = cameraBase + new Vector3(shake * reboundSide, shake * 0.38f, saved ? contactFlash * 0.09f : 0f);
             cameraRig.rotation = ShotCameraRotation(t, contactFlash, reboundSide);
             yield return null;
         }
@@ -3415,9 +3416,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         Vector3 ready = ReadyCameraPosition();
         Vector3 follow = new Vector3(aimX * 0.16f, saved ? 2.12f : 2.08f, saved ? -4.36f : -4.52f);
         Vector3 camera = Vector3.Lerp(ready, follow, Smooth(t));
-        camera.x += reboundSide * impact * 0.08f;
-        camera.y += impact * 0.04f;
-        camera.z += impact * 0.28f;
+        camera.x += reboundSide * impact * (saved ? 0.14f : 0.08f);
+        camera.y += impact * (saved ? 0.06f : 0.04f);
+        camera.z += impact * (saved ? 0.42f : 0.28f);
         return camera;
     }
 
@@ -3425,8 +3426,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         float basePitch = Mathf.Lerp(6.5f, 8.25f, Smooth(t));
         float shotLift = Mathf.Sin(t * Mathf.PI) * 1.85f;
-        float yaw = aimX * 1.25f + reboundSide * impact * 0.95f;
-        return Quaternion.Euler(basePitch + shotLift - impact * 1.25f, yaw, 0f);
+        float yaw = aimX * 1.25f + reboundSide * impact * 1.45f;
+        return Quaternion.Euler(basePitch + shotLift - impact * 1.75f, yaw, reboundSide * impact * 0.45f);
     }
 
     private void SetStatus(string message)
