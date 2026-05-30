@@ -1525,6 +1525,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float contactPunch = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.34f, 0.62f, t)) * Mathf.PI);
         float readStep = Smooth(Mathf.Clamp01(Mathf.InverseLerp(0f, 0.18f, t)));
         float anticipation = readStep * (1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.2f, 0.38f, t))));
+        float readDrop = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.02f, 0.24f, t)) * Mathf.PI) * (1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.22f, 0.42f, t))));
         if (top)
         {
             coil = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0f, 0.18f, t)) * Mathf.PI);
@@ -1533,31 +1534,32 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             hold = launch * (1f - recover);
             contactPunch = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.34f, 0.5f, t)) * Mathf.PI);
             anticipation = readStep * (1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.18f, 0.34f, t))));
+            readDrop = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.01f, 0.2f, t)) * Mathf.PI) * (1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.2f, 0.34f, t))));
         }
 
-        float x = -visualSide * 0.16f * anticipation - visualSide * 0.12f * coil + visualSide * (top ? 0.78f : middle ? 1.02f : 1.18f) * hold + visualSide * 0.1f * contactPunch;
-        float y = -0.2f * anticipation - 0.14f * coil + (top ? 0.36f : middle ? 0.16f : -0.34f) * hold + 0.08f * snap;
-        float z = 0.08f * anticipation - 0.08f * coil + (top ? -0.1f : middle ? -0.3f : -0.56f) * hold - 0.1f * contactPunch;
+        float x = -visualSide * 0.22f * anticipation - visualSide * 0.06f * readDrop - visualSide * 0.12f * coil + visualSide * (top ? 0.78f : middle ? 1.02f : 1.18f) * hold + visualSide * 0.1f * contactPunch;
+        float y = -0.26f * anticipation - 0.16f * readDrop - 0.14f * coil + (top ? 0.36f : middle ? 0.16f : -0.34f) * hold + 0.08f * snap;
+        float z = 0.12f * anticipation + 0.04f * readDrop - 0.08f * coil + (top ? -0.1f : middle ? -0.3f : -0.56f) * hold - 0.1f * contactPunch;
         if (top)
         {
-            x = -visualSide * 0.07f * anticipation - visualSide * 0.05f * coil + visualSide * 0.52f * hold + visualSide * 0.035f * contactPunch;
-            y = -0.14f * anticipation - 0.08f * coil + 0.72f * hold + 0.05f * snap;
-            z = 0.05f * anticipation - 0.05f * coil - 0.14f * hold - 0.045f * contactPunch;
+            x = -visualSide * 0.1f * anticipation - visualSide * 0.045f * readDrop - visualSide * 0.05f * coil + visualSide * 0.52f * hold + visualSide * 0.035f * contactPunch;
+            y = -0.2f * anticipation - 0.14f * readDrop - 0.08f * coil + 0.72f * hold + 0.05f * snap;
+            z = 0.08f * anticipation + 0.03f * readDrop - 0.05f * coil - 0.14f * hold - 0.045f * contactPunch;
         }
         if (side == 0f)
         {
             x = 0f;
-            y = -0.2f * anticipation - 0.12f * coil + (top ? 0.68f : middle ? 0.12f : -0.18f) * hold + 0.07f * snap;
-            z = 0.07f * anticipation - 0.1f * coil + (top ? -0.18f : middle ? -0.48f : -0.56f) * hold - 0.1f * contactPunch;
+            y = -0.24f * anticipation - 0.16f * readDrop - 0.12f * coil + (top ? 0.68f : middle ? 0.12f : -0.18f) * hold + 0.07f * snap;
+            z = 0.1f * anticipation + 0.04f * readDrop - 0.1f * coil + (top ? -0.18f : middle ? -0.48f : -0.56f) * hold - 0.1f * contactPunch;
         }
 
         importedKeeperActionOffsetLocal = new Vector3(x, y, z);
-        float pitch = 10f * anticipation - 7f * coil + (top ? -8f : bottom ? 20f : -8f) * hold + (bottom ? 10f : -4f) * contactPunch;
-        float roll = side == 0f ? 0f : visualSide * 6f * anticipation - visualSide * ((top ? 10f : middle ? 38f : 48f) * hold + (top ? 3f : 8f) * contactPunch);
+        float pitch = 14f * anticipation + 10f * readDrop - 7f * coil + (top ? -8f : bottom ? 20f : -8f) * hold + (bottom ? 10f : -4f) * contactPunch;
+        float roll = side == 0f ? 0f : visualSide * 9f * anticipation + visualSide * 5f * readDrop - visualSide * ((top ? 10f : middle ? 38f : 48f) * hold + (top ? 3f : 8f) * contactPunch);
         if (top)
         {
-            pitch = 7f * anticipation - 5f * coil - 8f * hold - 3f * contactPunch;
-            roll = side == 0f ? 0f : visualSide * 3f * anticipation - visualSide * (3.5f * hold + 1.5f * contactPunch);
+            pitch = 10f * anticipation + 8f * readDrop - 5f * coil - 8f * hold - 3f * contactPunch;
+            roll = side == 0f ? 0f : visualSide * 5f * anticipation + visualSide * 3f * readDrop - visualSide * (3.5f * hold + 1.5f * contactPunch);
         }
         importedKeeperActionRotationOffset = Quaternion.Euler(pitch, 0f, roll);
     }
