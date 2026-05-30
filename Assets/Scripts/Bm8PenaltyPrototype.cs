@@ -18,6 +18,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private const float KeeperTestShotTimeoutSeconds = 9.5f;
     private const string UploadedStylizedKeeperPath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/Goalkeeper_TPose.FBX";
     private const string Bm8KeeperBaseTexturePath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/textures/Goalkeeper_Base_color.png";
+    private const string AaGoalkeeperControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
 
     [Header("Scene Objects")]
     [SerializeField] private Transform ball;
@@ -273,16 +274,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        if (keeperRow == 0)
-        {
-            float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
-            float reachIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.14f, 0.44f, importedKeeperActionT));
-            float reachOut = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.78f, 1f, importedKeeperActionT));
-            float weight = reachIn * (1f - reachOut);
-            Vector3 leftTarget = keeper.TransformPoint(new Vector3(side < 0f ? -0.6f : side > 0f ? 0.08f : -0.2f, side == 0f ? 1.86f : 1.74f, -0.34f));
-            Vector3 rightTarget = keeper.TransformPoint(new Vector3(side > 0f ? 0.6f : side < 0f ? -0.08f : 0.2f, side == 0f ? 1.86f : 1.74f, -0.34f));
-            ApplyKeeperHandIk(leftTarget, rightTarget, weight * 0.48f);
-        }
+        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0f);
+        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 0f);
+        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0f);
+        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0f);
     }
 
     private void ApplyKeeperHandIk(Vector3 leftTarget, Vector3 rightTarget, float weight)
@@ -942,22 +937,27 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         if (UseAaAnimatedKeeper && keeperAnimator != null)
         {
-            float heldActionT = saved ? keeperRow == 0 ? 0.8f : keeperRow == 2 ? 0.76f : 0.74f : 1f;
+            ClearImportedKeeperActionOffset();
+            Vector3 rootFrom = keeperStart;
+            Vector3 rootTo = AaKeeperRootTarget(saved);
+            Quaternion rotationFrom = Quaternion.identity;
+            Quaternion rotationTo = AaKeeperRootRotation(saved);
+            float rootHoldT = saved ? 0.82f : 1f;
             float holdElapsed = 0f;
             while (holdElapsed < duration)
             {
                 holdElapsed += Time.unscaledDeltaTime;
                 float actionT = Mathf.Clamp01(holdElapsed / duration);
-                ApplyImportedKeeperActionOffset(saved ? Mathf.Min(actionT, heldActionT) : actionT);
-                keeper.position = keeperStart;
-                keeper.rotation = Quaternion.identity;
+                float moveT = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.08f, 0.52f, Mathf.Min(actionT, rootHoldT)));
+                keeper.position = Vector3.Lerp(rootFrom, rootTo, moveT);
+                keeper.rotation = Quaternion.Slerp(rotationFrom, rotationTo, moveT);
                 AnchorImportedKeeperVisibleModel();
                 yield return null;
             }
 
-            ApplyImportedKeeperActionOffset(heldActionT);
-            keeper.position = keeperStart;
-            keeper.rotation = Quaternion.identity;
+            ClearImportedKeeperActionOffset();
+            keeper.position = rootTo;
+            keeper.rotation = rotationTo;
             AnchorImportedKeeperVisibleModel();
             yield break;
         }
@@ -2018,12 +2018,23 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        RuntimeAnimatorController controller;
-        if (keeperRow == 0)
+        RuntimeAnimatorController controller = UseAaAnimatedKeeper ? LoadAaKeeperController(AaKeeperControllerName(save)) : null;
+        if (controller == null && keeperRow == 0)
         {
-            controller = keeperIdleController;
+            if (keeperCol == 0)
+            {
+                controller = save ? keeperHitTopLeftSuccessController : keeperHitTopLeftFailController;
+            }
+            else if (keeperCol == 2)
+            {
+                controller = save ? keeperHitTopRightSuccessController : keeperHitTopRightFailController;
+            }
+            else
+            {
+                controller = save ? LoadAaKeeperController("AA_Soccer_Goal_HitBall_UP_Succ") : LoadAaKeeperController("AA_Soccer_Goal_HitBall_UP_Fail");
+            }
         }
-        else if (keeperRow == 2)
+        else if (controller == null && keeperRow == 2)
         {
             if (keeperCol == 0)
             {
@@ -2038,7 +2049,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 controller = save ? keeperCatchForwardSuccessController : keeperCatchForwardFailController;
             }
         }
-        else
+        else if (controller == null)
         {
             if (keeperCol == 0)
             {
@@ -2057,6 +2068,61 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         PlayKeeperController(controller);
     }
 
+    private string AaKeeperControllerName(bool save)
+    {
+        string suffix = save ? "Succ" : "Fail";
+        if (keeperRow == 0)
+        {
+            if (keeperCol == 0)
+            {
+                return "AA_Soccer_Goal_HitBall_TL_" + suffix;
+            }
+
+            if (keeperCol == 2)
+            {
+                return "AA_Soccer_Goal_HitBall_TR_" + suffix;
+            }
+
+            return "AA_Soccer_Goal_HitBall_UP_" + suffix;
+        }
+
+        if (keeperRow == 2)
+        {
+            if (keeperCol == 0)
+            {
+                return "AA_Soccer_Goal_CatchBall_LD_" + suffix;
+            }
+
+            if (keeperCol == 2)
+            {
+                return "AA_Soccer_Goal_CatchBall_RD_" + suffix;
+            }
+
+            return "AA_Soccer_Goal_CatchBall_F_" + suffix;
+        }
+
+        if (keeperCol == 0)
+        {
+            return "AA_Soccer_Goal_HitBall_L_" + suffix;
+        }
+
+        if (keeperCol == 2)
+        {
+            return "AA_Soccer_Goal_HitBall_R_" + suffix;
+        }
+
+        return "AA_Soccer_Goal_HitBall_F_" + suffix;
+    }
+
+    private static RuntimeAnimatorController LoadAaKeeperController(string controllerName)
+    {
+#if UNITY_EDITOR
+        return AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(AaGoalkeeperControllerFolder + controllerName + ".Controller");
+#else
+        return null;
+#endif
+    }
+
     private void PlayKeeperController(RuntimeAnimatorController controller)
     {
         if (keeperAnimator == null || controller == null)
@@ -2068,6 +2134,49 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         keeperAnimator.runtimeAnimatorController = controller;
         keeperAnimator.Rebind();
         keeperAnimator.Update(0f);
+    }
+
+    private Vector3 AaKeeperRootTarget(bool saved)
+    {
+        if (!saved)
+        {
+            float missSide = keeperCol == 1 ? 0f : Mathf.Sign(keeperCol - 1f) * 0.42f;
+            return keeperStart + new Vector3(missSide, 0f, -0.08f);
+        }
+
+        float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+        if (keeperRow == 0)
+        {
+            return keeperStart + new Vector3(side * 0.72f, 0.36f, -0.12f);
+        }
+
+        if (keeperRow == 2)
+        {
+            return keeperStart + new Vector3(side * 1.08f, 0f, -0.38f);
+        }
+
+        return keeperStart + new Vector3(side * 1.16f, side == 0f ? 0.02f : 0.12f, -0.22f);
+    }
+
+    private Quaternion AaKeeperRootRotation(bool saved)
+    {
+        if (!saved)
+        {
+            return Quaternion.identity;
+        }
+
+        float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+        if (keeperRow == 0)
+        {
+            return Quaternion.Euler(-4f, side * 5f, -side * 7f);
+        }
+
+        if (keeperRow == 2)
+        {
+            return Quaternion.Euler(4f, side * 9f, -side * 12f);
+        }
+
+        return Quaternion.Euler(-2f, side * 10f, -side * 16f);
     }
 
     private struct KeeperSaveProfile
