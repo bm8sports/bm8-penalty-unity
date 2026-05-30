@@ -1475,11 +1475,27 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        keeperVisibleModel.localPosition = importedKeeperAnchorLocalPosition + importedKeeperActionOffsetLocal;
-        keeperVisibleModel.localRotation = importedKeeperAnchorLocalRotation * importedKeeperActionRotationOffset;
+        Vector3 readyMotion = !shooting ? ImportedKeeperReadyMotionOffset() : Vector3.zero;
+        Quaternion readyRotation = !shooting ? ImportedKeeperReadyMotionRotation() : Quaternion.identity;
+        keeperVisibleModel.localPosition = importedKeeperAnchorLocalPosition + importedKeeperActionOffsetLocal + readyMotion;
+        keeperVisibleModel.localRotation = importedKeeperAnchorLocalRotation * importedKeeperActionRotationOffset * readyRotation;
         keeperVisibleModel.localScale = importedKeeperAnchorLocalScale;
         ClampImportedKeeperVisibleBounds();
         PoseImportedKeeperTopTipHands();
+    }
+
+    private static Vector3 ImportedKeeperReadyMotionOffset()
+    {
+        float breathe = Mathf.Sin(Time.time * 2.4f);
+        float weight = Mathf.Sin(Time.time * 1.35f);
+        return new Vector3(weight * 0.025f, Mathf.Abs(breathe) * 0.018f, breathe * 0.008f);
+    }
+
+    private static Quaternion ImportedKeeperReadyMotionRotation()
+    {
+        float weight = Mathf.Sin(Time.time * 1.35f);
+        float breathe = Mathf.Sin(Time.time * 2.4f);
+        return Quaternion.Euler(breathe * 0.65f, weight * 0.35f, -weight * 0.9f);
     }
 
     private void ClearImportedKeeperActionOffset()
