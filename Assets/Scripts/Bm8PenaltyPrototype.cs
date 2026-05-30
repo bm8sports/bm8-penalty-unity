@@ -122,6 +122,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private float resultBannerStartedAt;
     private Color resultBannerColor = Color.white;
     private float targetPulseStartedAt;
+    private float kickFlashUntil;
+    private Vector3 kickFlashWorld;
 
     private void Awake()
     {
@@ -320,6 +322,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         DrawArcadeHud();
+        DrawKickFlash();
         DrawRuntimeTestButton();
         RunShotWatchdog();
 
@@ -431,6 +434,28 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             };
             GUI.Label(new Rect(0f, height * 0.29f - pop * 10f, width, height * 0.22f), resultBanner, bannerStyle);
         }
+    }
+
+    private void DrawKickFlash()
+    {
+        if (Time.time >= kickFlashUntil || Camera.main == null)
+        {
+            return;
+        }
+
+        Vector3 screen = Camera.main.WorldToScreenPoint(kickFlashWorld);
+        if (screen.z <= 0f)
+        {
+            return;
+        }
+
+        float remaining = Mathf.Clamp01((kickFlashUntil - Time.time) / 0.18f);
+        float pop = Mathf.Sin(remaining * Mathf.PI);
+        float size = Mathf.Lerp(18f, 62f, pop);
+        Rect rect = new Rect(screen.x - size * 0.5f, Screen.height - screen.y - size * 0.5f, size, size);
+        FillGuiRect(rect, new Color(1f, 0.92f, 0.14f, Mathf.Lerp(0.05f, 0.42f, remaining)));
+        FillGuiRect(new Rect(rect.x + size * 0.43f, rect.y - size * 0.2f, size * 0.14f, size * 1.4f), new Color(1f, 1f, 1f, Mathf.Lerp(0.04f, 0.32f, remaining)));
+        FillGuiRect(new Rect(rect.x - size * 0.2f, rect.y + size * 0.43f, size * 1.4f, size * 0.14f), new Color(1f, 1f, 1f, Mathf.Lerp(0.04f, 0.32f, remaining)));
     }
 
     private void DrawRuntimeTestButton()
@@ -960,6 +985,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             SetLocalRotation(strikerRightArm, Mathf.Lerp(-86f, -18f, snap), 0f, -34f + aimSide * 9f);
             AnimateVisibleStriker(Mathf.Lerp(-12f, 22f, snap), bodyTurn * aimSide, follow);
             ApplyBallImpactScale(impact * 0.55f);
+            if (impact > 0.82f && Time.time >= kickFlashUntil)
+            {
+                kickFlashWorld = ball.position + new Vector3(aimSide * 0.05f, 0.08f, -0.08f);
+                kickFlashUntil = Time.time + 0.18f;
+            }
             cameraRig.position = ReadyCameraPosition() + new Vector3(aimSide * impact * 0.035f, impact * 0.02f, impact * 0.05f);
             cameraRig.rotation = Quaternion.Euler(6.5f - impact * 0.8f, aimSide * impact * 0.55f, 0f);
             ball.Rotate(new Vector3(620f, 240f, aimSide * 140f) * Time.deltaTime, Space.World);
@@ -1259,11 +1289,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             Mathf.Clamp(deflect.x + reboundSide * UnityEngine.Random.Range(keeperRow == 0 ? 0.7f : 0.38f, keeperRow == 0 ? 1.25f : 0.95f), -3.8f, 3.8f),
             keeperRow == 0 ? 0.24f : 0.28f,
             UnityEngine.Random.Range(keeperRow == 0 ? -3.65f : -3.25f, keeperRow == 0 ? -2.85f : -2.45f));
+        float lastT = 0f;
 
         while (elapsed < duration)
         {
             elapsed += Time.unscaledDeltaTime;
             float t = Mathf.Clamp01(elapsed / duration);
+            if (saved && t >= contactTime && lastT < contactTime)
+            {
+                yield return null;
+            }
+            lastT = t;
             Vector3 position;
             float side = Mathf.Abs(to.x) < 0.1f ? 0f : Mathf.Sign(to.x);
             if (saved)
