@@ -119,7 +119,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private bool importedKeeperBoundsCaptured;
     private string resultBanner = "";
     private float resultBannerUntil;
+    private float resultBannerStartedAt;
     private Color resultBannerColor = Color.white;
+    private float targetPulseStartedAt;
 
     private void Awake()
     {
@@ -391,8 +393,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             float x = chipStart + i * width * 0.11f;
             float chipY = topPad + topBarHeight * 0.66f;
-            FillGuiRect(new Rect(x, chipY, 11f, 11f), i % 2 == 0 ? new Color(1f, 0.2f, 0.18f, 0.95f) : new Color(1f, 0.86f, 0.18f, 0.95f));
-            GUI.Label(new Rect(x - 15f, chipY + 12f, 44f, 18f), chips[i], small);
+            bool selectedChip = i == TargetMultiplierIndex();
+            float pulse = selectedChip ? Mathf.Sin((Time.time - targetPulseStartedAt) * 12f) * 0.5f + 0.5f : 0f;
+            float chipSize = selectedChip ? Mathf.Lerp(14f, 22f, pulse) : 11f;
+            Color chipColor = i % 2 == 0 ? new Color(1f, 0.2f, 0.18f, 0.95f) : new Color(1f, 0.86f, 0.18f, 0.95f);
+            if (selectedChip)
+            {
+                FillGuiRect(new Rect(x - chipSize * 0.85f, chipY - chipSize * 0.85f, chipSize * 2.7f, chipSize * 2.7f), new Color(1f, 0.92f, 0.16f, Mathf.Lerp(0.12f, 0.34f, pulse)));
+                chipColor = new Color(1f, 0.98f, 0.32f, 1f);
+            }
+            FillGuiRect(new Rect(x - (chipSize - 11f) * 0.5f, chipY - (chipSize - 11f) * 0.5f, chipSize, chipSize), chipColor);
+            GUI.Label(new Rect(x - 15f, chipY + 12f, 44f, 18f), chips[i], selectedChip ? panelText : small);
         }
 
         Rect bottom = new Rect(width * 0.18f, bottomBarY, width * 0.64f, bottomBarHeight);
@@ -405,17 +416,20 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         if (!string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil)
         {
-            float pulse = Mathf.Sin(Time.time * 18f) * 0.5f + 0.5f;
-            Color flash = new Color(resultBannerColor.r, resultBannerColor.g, resultBannerColor.b, Mathf.Lerp(0.18f, 0.32f, pulse));
-            FillGuiRect(new Rect(0f, height * 0.34f, width, height * 0.15f), flash);
+            float age = Mathf.Max(0f, Time.time - resultBannerStartedAt);
+            float life = Mathf.Clamp01((resultBannerUntil - Time.time) / Mathf.Max(0.1f, resultBannerUntil - resultBannerStartedAt));
+            float pop = Mathf.Sin(Mathf.Clamp01(age / 0.22f) * Mathf.PI);
+            float pulse = Mathf.Sin(Time.time * 22f) * 0.5f + 0.5f;
+            Color flash = new Color(resultBannerColor.r, resultBannerColor.g, resultBannerColor.b, Mathf.Lerp(0.22f, 0.46f, Mathf.Max(pulse, pop)) * life);
+            FillGuiRect(new Rect(0f, height * 0.31f, width, height * 0.2f), flash);
             GUIStyle bannerStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
-                fontSize = Mathf.RoundToInt(Mathf.Clamp(height * 0.085f, 32f, 56f)),
+                fontSize = Mathf.RoundToInt(Mathf.Clamp(height * Mathf.Lerp(0.09f, 0.13f, pop), 36f, 82f)),
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = Color.white }
             };
-            GUI.Label(new Rect(0f, height * 0.34f, width, height * 0.15f), resultBanner, bannerStyle);
+            GUI.Label(new Rect(0f, height * 0.29f - pop * 10f, width, height * 0.22f), resultBanner, bannerStyle);
         }
     }
 
@@ -487,8 +501,24 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         resultBanner = message;
         resultBannerColor = color;
-        resultBannerUntil = Time.time + 1.45f;
+        resultBannerStartedAt = Time.time;
+        resultBannerUntil = Time.time + 1.7f;
         ShowResultGoalFlash(color);
+    }
+
+    private int TargetMultiplierIndex()
+    {
+        if (aimRow == 0)
+        {
+            return aimCol == 0 ? 0 : aimCol == 1 ? 2 : 4;
+        }
+
+        if (aimRow == 1)
+        {
+            return aimCol == 1 ? 2 : aimCol == 0 ? 1 : 3;
+        }
+
+        return aimCol == 1 ? 1 : aimCol == 0 ? 0 : 4;
     }
 
     private bool TryShootFromMouse(Vector3 mousePosition)
@@ -653,6 +683,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         aimRow = Mathf.Clamp(row, 0, 2);
         aimX = GridX(aimCol);
         aimY = GridY(aimRow);
+        targetPulseStartedAt = Time.time;
     }
 
     public void ResetShot()
