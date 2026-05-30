@@ -77,6 +77,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Material ballShadowMaterial;
     private Transform saveImpactFlash;
     private Material saveImpactMaterial;
+    private Transform saveShockwave;
+    private Material saveShockwaveMaterial;
     private Transform saveContactStreak;
     private Material saveContactStreakMaterial;
     private Transform resultGoalFlash;
@@ -153,6 +155,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         SetupBallTrail();
         EnsureBallShadow();
         EnsureSaveImpactFlash();
+        EnsureSaveShockwave();
         EnsureSaveContactStreak();
         EnsureResultGoalFlash();
         HideSolidGoalNetBackdrop();
@@ -667,6 +670,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideSaveShockwave();
         HideSaveContactStreak();
         HideResultGoalFlash();
 
@@ -695,6 +699,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideSaveShockwave();
         HideSaveContactStreak();
         HideResultGoalFlash();
 
@@ -1154,6 +1159,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideSaveShockwave();
         HideSaveContactStreak();
         HideResultGoalFlash();
 
@@ -1178,6 +1184,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail.Clear();
         }
         HideSaveImpactFlash();
+        HideSaveShockwave();
         HideSaveContactStreak();
         HideResultGoalFlash();
 
@@ -1271,6 +1278,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float presentationImpact = Mathf.Max(contactFlash, impactBurst);
             ApplyBallImpactScale(presentationImpact);
             UpdateSaveImpactFlash(saved ? presentationImpact : 0f, contact);
+            UpdateSaveShockwave(saved ? impactBurst : 0f, contact);
             UpdateSaveContactStreak(saved ? presentationImpact : 0f, contact, reboundSide);
             float saveSpinBoost = keeperRow == 0 ? 1.22f : 1f;
             ball.Rotate(new Vector3(saved ? 1760f * saveSpinBoost : 920f, saved ? -720f * saveSpinBoost : 260f, side * 220f + reboundSide * (saved ? 620f * saveSpinBoost : 0f)) * Time.unscaledDeltaTime, Space.World);
@@ -1283,6 +1291,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         HideSaveImpactFlash();
+        HideSaveShockwave();
         HideSaveContactStreak();
         ball.localScale = ballBaseScale;
         UpdateBallShadow();
@@ -2559,11 +2568,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         ballTrail.time = 0.42f;
-        ballTrail.startWidth = 0.12f;
-        ballTrail.endWidth = 0.02f;
+        ballTrail.startWidth = 0.18f;
+        ballTrail.endWidth = 0.035f;
         ballTrail.material = new Material(Shader.Find("Sprites/Default"));
-        ballTrail.startColor = new Color(1f, 0.92f, 0.25f, 0.95f);
-        ballTrail.endColor = new Color(1f, 0.92f, 0.25f, 0f);
+        ballTrail.startColor = new Color(1f, 0.96f, 0.35f, 1f);
+        ballTrail.endColor = new Color(1f, 0.22f, 0.08f, 0f);
         ballTrail.Clear();
     }
 
@@ -2689,6 +2698,105 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (saveImpactFlash != null)
         {
             saveImpactFlash.gameObject.SetActive(false);
+        }
+    }
+
+    private void EnsureSaveShockwave()
+    {
+        Transform existing = transform.Find("BM8 Save Shockwave");
+        saveShockwave = existing;
+        if (saveShockwave == null)
+        {
+            GameObject shockwave = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            shockwave.name = "BM8 Save Shockwave";
+            saveShockwave = shockwave.transform;
+            saveShockwave.SetParent(transform, false);
+            Collider collider = shockwave.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Destroy(collider);
+            }
+        }
+
+        Renderer renderer = saveShockwave.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            saveShockwaveMaterial = new Material(Shader.Find("Sprites/Default"));
+            saveShockwaveMaterial.mainTexture = CreateShockwaveTexture();
+            saveShockwaveMaterial.color = new Color(1f, 0.96f, 0.42f, 0f);
+            renderer.sharedMaterial = saveShockwaveMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        HideSaveShockwave();
+    }
+
+    private static Texture2D CreateShockwaveTexture()
+    {
+        const int size = 96;
+        Texture2D texture = new Texture2D(size, size, TextureFormat.RGBA32, false)
+        {
+            wrapMode = TextureWrapMode.Clamp,
+            filterMode = FilterMode.Bilinear
+        };
+
+        Vector2 center = new Vector2((size - 1) * 0.5f, (size - 1) * 0.5f);
+        Color clear = new Color(1f, 1f, 1f, 0f);
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float distance = Vector2.Distance(new Vector2(x, y), center) / (size * 0.5f);
+                float outer = Mathf.SmoothStep(0.74f, 0.86f, distance);
+                float inner = 1f - Mathf.SmoothStep(0.88f, 0.99f, distance);
+                float alpha = outer * inner;
+                texture.SetPixel(x, y, alpha > 0.001f ? new Color(1f, 1f, 1f, alpha) : clear);
+            }
+        }
+
+        texture.Apply(false, true);
+        return texture;
+    }
+
+    private void UpdateSaveShockwave(float intensity, Vector3 contact)
+    {
+        if (saveShockwave == null)
+        {
+            return;
+        }
+
+        float visible = Mathf.Clamp01(intensity);
+        if (visible <= 0.001f)
+        {
+            HideSaveShockwave();
+            return;
+        }
+
+        saveShockwave.gameObject.SetActive(true);
+        saveShockwave.position = contact + new Vector3(0f, 0f, -0.12f);
+        if (cameraRig != null)
+        {
+            Vector3 toCamera = saveShockwave.position - cameraRig.position;
+            if (toCamera.sqrMagnitude > 0.0001f)
+            {
+                saveShockwave.rotation = Quaternion.LookRotation(toCamera.normalized, Vector3.up);
+            }
+        }
+
+        float size = Mathf.Lerp(0.6f, keeperRow == 0 ? 1.72f : 1.42f, 1f - visible * 0.28f);
+        saveShockwave.localScale = new Vector3(size, size, 1f);
+        if (saveShockwaveMaterial != null)
+        {
+            saveShockwaveMaterial.color = new Color(1f, 0.96f, 0.42f, Mathf.Lerp(0.08f, 0.62f, visible));
+        }
+    }
+
+    private void HideSaveShockwave()
+    {
+        if (saveShockwave != null)
+        {
+            saveShockwave.gameObject.SetActive(false);
         }
     }
 
