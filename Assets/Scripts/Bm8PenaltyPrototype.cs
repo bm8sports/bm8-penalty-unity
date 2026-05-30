@@ -13,9 +13,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static readonly bool UseAaAnimatedKeeper = true;
     private static readonly bool UseGeneratedKeeperSpriteSheet = false;
     private static readonly bool UseArcadeVideoCamera = true;
-    private const float ShotWatchdogSeconds = 8.5f;
-    private const double ShotWatchdogWallSeconds = 8.5d;
-    private const float KeeperTestShotTimeoutSeconds = 9.5f;
+    private const float ShotWatchdogSeconds = 14f;
+    private const double ShotWatchdogWallSeconds = 14d;
+    private const float KeeperTestShotTimeoutSeconds = 15f;
     private const string UploadedStylizedKeeperPath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/Goalkeeper_TPose.FBX";
     private const string Bm8KeeperBaseTexturePath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/textures/Goalkeeper_Base_color.png";
     private const string AaGoalkeeperControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
@@ -1197,13 +1197,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         bool standingBlockSave = saved && !UseAaAnimatedKeeper && IsStandingBlockRow(keeperRow);
         Vector3 contact = UseAaAnimatedKeeper ? AaKeeperContactWorld() : standingBlockSave ? StandingBlockContactWorld() : SavePalmWorld();
         float contactTime = UseAaAnimatedKeeper ? AaContactTime() : 0.32f;
-        float loadTime = Mathf.Clamp01(contactTime + (UseAaAnimatedKeeper ? 0.055f : 0.06f));
-        float punchTime = Mathf.Clamp01(loadTime + (UseAaAnimatedKeeper ? AaPunchWindow() : 0.24f));
+        float loadTime = Mathf.Clamp01(contactTime + (UseAaAnimatedKeeper ? 0.035f : 0.06f));
+        float punchTime = Mathf.Clamp01(loadTime + (UseAaAnimatedKeeper ? AaPunchWindow() * 0.86f : 0.24f));
         if (UseAaAnimatedKeeper && keeperRow == 0)
         {
             contact += new Vector3(0f, 0.14f, -0.08f);
-            loadTime = Mathf.Clamp01(contactTime + 0.13f);
-            punchTime = Mathf.Clamp01(loadTime + 0.2f);
+            loadTime = Mathf.Clamp01(contactTime + 0.08f);
+            punchTime = Mathf.Clamp01(loadTime + 0.16f);
         }
         Vector3 palmLoad = contact + (standingBlockSave ? new Vector3(0f, -0.05f, -0.02f) : AaPalmLoadOffset());
         Vector3 deflect = standingBlockSave
@@ -1233,7 +1233,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 if (t < contactTime)
                 {
                     float inT = t / contactTime;
-                    float shotT = EaseOut(inT, 2.2f);
+                    float shotT = EaseOut(inT, UseAaAnimatedKeeper ? 3.05f : 2.2f);
                     position = Vector3.Lerp(from, contact, shotT);
                     position.y += Mathf.Sin(inT * Mathf.PI) * AaShotArcHeight(saved);
                 }
@@ -1246,7 +1246,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 else if (t < punchTime)
                 {
                     float outT = (t - loadTime) / (punchTime - loadTime);
-                    position = Vector3.Lerp(palmLoad, deflect, EaseOut(outT, keeperRow == 0 ? 3.1f : 2.4f));
+                    position = Vector3.Lerp(palmLoad, deflect, EaseOut(outT, keeperRow == 0 ? 3.55f : 2.85f));
                     position.y += Mathf.Sin(outT * Mathf.PI) * (UseAaAnimatedKeeper ? AaDeflectArcHeight() : 1.36f);
                 }
                 else
@@ -1266,17 +1266,19 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
             ball.position = position;
             UpdateBallShadow();
-            float contactFlash = saved ? Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(contactTime, punchTime, t)) * Mathf.PI) : 0f;
-            ApplyBallImpactScale(contactFlash);
-            UpdateSaveImpactFlash(saved ? contactFlash : 0f, contact);
-            UpdateSaveContactStreak(saved ? contactFlash : 0f, contact, reboundSide);
+            float contactFlash = saved ? Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(contactTime - 0.025f, punchTime, t)) * Mathf.PI) : 0f;
+            float impactBurst = saved ? Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(contactTime - 0.015f, contactTime + 0.1f, t)) * Mathf.PI) : 0f;
+            float presentationImpact = Mathf.Max(contactFlash, impactBurst);
+            ApplyBallImpactScale(presentationImpact);
+            UpdateSaveImpactFlash(saved ? presentationImpact : 0f, contact);
+            UpdateSaveContactStreak(saved ? presentationImpact : 0f, contact, reboundSide);
             float saveSpinBoost = keeperRow == 0 ? 1.22f : 1f;
             ball.Rotate(new Vector3(saved ? 1760f * saveSpinBoost : 920f, saved ? -720f * saveSpinBoost : 260f, side * 220f + reboundSide * (saved ? 620f * saveSpinBoost : 0f)) * Time.unscaledDeltaTime, Space.World);
-            Vector3 cameraBase = ShotCameraPosition(t, contactFlash, saved, reboundSide);
-            float saveHitShake = saved ? contactFlash * (keeperRow == 0 ? 0.14f : 0.11f) : 0f;
-            float shake = Mathf.Sin(t * Mathf.PI * 24f) * Mathf.Sin(t * Mathf.PI) * 0.032f + saveHitShake;
-            cameraRig.position = cameraBase + new Vector3(shake * reboundSide, shake * 0.38f, saved ? contactFlash * 0.09f : 0f);
-            cameraRig.rotation = ShotCameraRotation(t, contactFlash, reboundSide);
+            Vector3 cameraBase = ShotCameraPosition(t, presentationImpact, saved, reboundSide);
+            float saveHitShake = saved ? presentationImpact * (keeperRow == 0 ? 0.2f : 0.16f) : 0f;
+            float shake = Mathf.Sin(t * Mathf.PI * 30f) * Mathf.Sin(t * Mathf.PI) * 0.04f + saveHitShake;
+            cameraRig.position = cameraBase + new Vector3(shake * reboundSide, shake * 0.45f, saved ? presentationImpact * 0.13f : 0f);
+            cameraRig.rotation = ShotCameraRotation(t, presentationImpact, reboundSide);
             yield return null;
         }
 
@@ -2674,11 +2676,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
         }
 
-        float size = Mathf.Lerp(0.18f, keeperRow == 0 ? 0.58f : 0.42f, visible);
+        float size = Mathf.Lerp(0.24f, keeperRow == 0 ? 0.88f : 0.68f, visible);
         saveImpactFlash.localScale = new Vector3(size, size, 1f);
         if (saveImpactMaterial != null)
         {
-            saveImpactMaterial.color = new Color(1f, 0.92f, 0.1f, Mathf.Lerp(0.15f, 0.72f, visible));
+            saveImpactMaterial.color = new Color(1f, 0.95f, 0.16f, Mathf.Lerp(0.2f, 0.92f, visible));
         }
     }
 
@@ -2746,12 +2748,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
         }
 
-        float length = Mathf.Lerp(0.28f, keeperRow == 0 ? 0.92f : 0.72f, visible);
-        float thickness = Mathf.Lerp(0.035f, keeperRow == 0 ? 0.09f : 0.075f, visible);
+        float length = Mathf.Lerp(0.36f, keeperRow == 0 ? 1.28f : 1.04f, visible);
+        float thickness = Mathf.Lerp(0.045f, keeperRow == 0 ? 0.13f : 0.105f, visible);
         saveContactStreak.localScale = new Vector3(length, thickness, 1f);
         if (saveContactStreakMaterial != null)
         {
-            saveContactStreakMaterial.color = new Color(1f, 0.98f, 0.58f, Mathf.Lerp(0.1f, 0.78f, visible));
+            saveContactStreakMaterial.color = new Color(1f, 0.98f, 0.58f, Mathf.Lerp(0.16f, 0.94f, visible));
         }
     }
 
@@ -2806,7 +2808,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         resultGoalFlashColor = color;
-        resultGoalFlashUntil = Time.time + 0.72f;
+        resultGoalFlashUntil = Time.time + 0.94f;
         UpdateResultGoalFlash();
     }
 
@@ -2825,10 +2827,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         resultGoalFlash.gameObject.SetActive(true);
-        float t = Mathf.Clamp01(remaining / 0.72f);
+        float t = Mathf.Clamp01(remaining / 0.94f);
         float pulse = Mathf.Sin(t * Mathf.PI);
-        float alpha = Mathf.Lerp(0.02f, 0.26f, pulse);
-        resultGoalFlash.localScale = new Vector3(Mathf.Lerp(5.08f, 5.75f, pulse), Mathf.Lerp(1.42f, 1.85f, pulse), 1f);
+        float alpha = Mathf.Lerp(0.04f, 0.38f, pulse);
+        resultGoalFlash.localScale = new Vector3(Mathf.Lerp(5.25f, 6.1f, pulse), Mathf.Lerp(1.62f, 2.12f, pulse), 1f);
         resultGoalFlashMaterial.color = new Color(resultGoalFlashColor.r, resultGoalFlashColor.g, resultGoalFlashColor.b, alpha);
     }
 
@@ -3574,20 +3576,22 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Vector3 ShotCameraPosition(float t, float impact, bool saved, float reboundSide)
     {
         Vector3 ready = ReadyCameraPosition();
-        Vector3 follow = new Vector3(aimX * 0.16f, saved ? 2.12f : 2.08f, saved ? -4.36f : -4.52f);
-        Vector3 camera = Vector3.Lerp(ready, follow, Smooth(t));
-        camera.x += reboundSide * impact * (saved ? 0.14f : 0.08f);
-        camera.y += impact * (saved ? 0.06f : 0.04f);
-        camera.z += impact * (saved ? 0.42f : 0.28f);
+        Vector3 follow = new Vector3(aimX * 0.2f, saved ? 2.2f : 2.1f, saved ? -4.08f : -4.42f);
+        float pushIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, saved ? 0.44f : 0.58f, t));
+        Vector3 camera = Vector3.Lerp(ready, follow, pushIn);
+        camera.x += reboundSide * impact * (saved ? 0.22f : 0.1f);
+        camera.y += impact * (saved ? 0.1f : 0.05f);
+        camera.z += impact * (saved ? 0.62f : 0.34f);
         return camera;
     }
 
     private Quaternion ShotCameraRotation(float t, float impact, float reboundSide)
     {
-        float basePitch = Mathf.Lerp(6.5f, 8.25f, Smooth(t));
-        float shotLift = Mathf.Sin(t * Mathf.PI) * 1.85f;
-        float yaw = aimX * 1.25f + reboundSide * impact * 1.45f;
-        return Quaternion.Euler(basePitch + shotLift - impact * 1.75f, yaw, reboundSide * impact * 0.45f);
+        float pushIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.5f, t));
+        float basePitch = Mathf.Lerp(6.5f, 9.25f, pushIn);
+        float shotLift = Mathf.Sin(t * Mathf.PI) * 2.15f;
+        float yaw = aimX * 1.45f + reboundSide * impact * 2.2f;
+        return Quaternion.Euler(basePitch + shotLift - impact * 2.45f, yaw, reboundSide * impact * 0.85f);
     }
 
     private void SetStatus(string message)
