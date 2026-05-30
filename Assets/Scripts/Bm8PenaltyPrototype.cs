@@ -258,6 +258,59 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
     }
 
+    private void OnAnimatorIK(int layerIndex)
+    {
+        if (!UseAaAnimatedKeeper || keeperAnimator == null || !keeperAnimator.isHuman)
+        {
+            return;
+        }
+
+        if (!shooting)
+        {
+            Vector3 leftReady = keeper.TransformPoint(new Vector3(-0.34f, 1.18f, -0.34f));
+            Vector3 rightReady = keeper.TransformPoint(new Vector3(0.34f, 1.18f, -0.34f));
+            ApplyKeeperHandIk(leftReady, rightReady, 0.78f);
+            return;
+        }
+
+        if (keeperRow == 0)
+        {
+            Vector3 contact = AaKeeperContactWorld() + new Vector3(0f, 0.2f, -0.1f);
+            float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+            float reachIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.14f, 0.44f, importedKeeperActionT));
+            float reachOut = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.78f, 1f, importedKeeperActionT));
+            float weight = reachIn * (1f - reachOut);
+            Vector3 leftTarget = side < 0f ? contact + new Vector3(-0.06f, 0.02f, -0.02f) : contact + new Vector3(-0.24f, -0.04f, -0.02f);
+            Vector3 rightTarget = side > 0f ? contact + new Vector3(0.06f, 0.02f, -0.02f) : contact + new Vector3(0.24f, -0.04f, -0.02f);
+            ApplyKeeperHandIk(leftTarget, rightTarget, weight * 0.86f);
+        }
+    }
+
+    private void ApplyKeeperHandIk(Vector3 leftTarget, Vector3 rightTarget, float weight)
+    {
+        float clamped = Mathf.Clamp01(weight);
+        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, clamped);
+        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.LeftHand, clamped * 0.55f);
+        keeperAnimator.SetIKPosition(AvatarIKGoal.LeftHand, leftTarget);
+        keeperAnimator.SetIKRotation(AvatarIKGoal.LeftHand, KeeperHandLookRotation(leftTarget));
+
+        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, clamped);
+        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.RightHand, clamped * 0.55f);
+        keeperAnimator.SetIKPosition(AvatarIKGoal.RightHand, rightTarget);
+        keeperAnimator.SetIKRotation(AvatarIKGoal.RightHand, KeeperHandLookRotation(rightTarget));
+    }
+
+    private Quaternion KeeperHandLookRotation(Vector3 target)
+    {
+        Vector3 aim = target - keeper.position;
+        if (aim.sqrMagnitude < 0.0001f)
+        {
+            return keeper.rotation;
+        }
+
+        return Quaternion.LookRotation(aim.normalized, Vector3.up);
+    }
+
     private void OnGUI()
     {
         if (!arcadeSceneFixed)

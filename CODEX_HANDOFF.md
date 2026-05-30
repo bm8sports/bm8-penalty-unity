@@ -2,82 +2,77 @@
 
 ## Project
 
-- Main Unity project: `/Users/teetienyaw/bm8-penalty-unity`
+- Main Unity project: `/Users/teetienyaw/Documents/Codex/2026-05-25/claude-code-project-codex/bm8-penalty-unity`
 - Main scene: `Assets/Scenes/BM8PenaltyPrototype.unity`
-- Main scripts:
-  - `Assets/Scripts/Bm8PenaltyPrototype.cs`
-  - `Assets/Editor/Bm8SceneBuilder.cs`
-- Related earlier web prototype/spec: `/Users/teetienyaw/bm8-penalty-demo`
+- Main runtime script: `Assets/Scripts/Bm8PenaltyPrototype.cs`
+- Scene builder: `Assets/Editor/Bm8SceneBuilder.cs`
 
-## Current State
+## Current Direction
 
-Wenxi is iterating on a BM8-branded penalty shootout goalkeeper save prototype.
+This is now a Unity 3D arcade penalty prototype. The active goalkeeper path is the uploaded stylized goalkeeper FBX plus AA Soccer Goalkeeper animation controllers. The older procedural keeper and sprite-sheet paths remain as fallback code, but they are not the intended primary presentation.
 
-Latest expected in-game version marker is now:
+Expected Play Mode marker:
 
 ```text
-V11 sprite-sheet keeper ready - tap a goal square
+BM8 PENALTY
+TAP GOAL
+GOALS / SAVES / SHOTS arcade HUD
 ```
 
-If Unity shows older markers like `V4 hand save`, `V5 distinct dives`, `V6 glove contact`, `V7 reference glove save - run up`, `V8 glove-lock save`, `V9 human keeper`, or `V10 low-poly human keeper`, it is likely running an old play session, window, or cache. Stop Play, wait for compile, and reopen the correct project/scene.
+If Unity shows an old flat scene or old text overlay, stop Play Mode, wait for compile/hot reload, then start Play Mode again in `Assets/Scenes/BM8PenaltyPrototype.unity`.
 
-## Reference
+## Honest Target
 
-Desired goalkeeper style is based on:
+The requested reference is:
 
 ```text
 https://www.youtube.com/watch?v=mF14bQIQRc0
 ```
 
-The keeper should explosively dive, lead with hands/gloves, contact the ball with the palm/glove, then punch or deflect the ball outward.
+This prototype can be polished to look and feel like an arcade penalty game, but it is not a one-to-one commercial clone. A true match needs a production humanoid goalkeeper model, matching AA/Mecanim save animations, tuned animation events, VFX, camera work, UI art, and audio.
 
-## Behavioral Requirements
+## Latest Keeper Work
 
-- Goalkeeper saves must visibly use hands/gloves, not head/body.
-- TC must be two hands above/in front of head, not a header.
-- On save, status should show `SAVED - glove punches ball out`.
-- Ball should be punched back into the field from glove/palm contact.
-- TC/ML/BL must not share identical height/action.
-- TR/MR/BR must not share identical height/action.
-- Top row should be high/jumping saves.
-- Middle row should be horizontal dives.
-- Bottom row should be low/near-ground dives.
-- Saved-ball contact point should use `SavePalmWorld()`.
-- Visible yellow glove spheres should align with the same contact point.
+- Uploaded stylized goalkeeper FBX is preferred at runtime.
+- BM8 black/red goalkeeper kit texture is applied when available.
+- Keeper has anticipation motion before the save: read step, crouch/drop, side bias, and launch.
+- Top-row saves are constrained so they read as high hand tips inside the goal instead of the whole body flying away.
+- Keeper holds the save pose through the result beat before returning to ready.
+- Ready state has subtle breathing/weight shift.
+- Humanoid IK keeps hands forward in ready state and biases top-row saves toward the ball contact point.
+- Saved-ball path travels to the keeper contact point, compresses, then rebounds outward with spin.
+- Save contact streak, impact flash, result flash, and camera shake are active.
+- Test mode score display no longer permanently pollutes the real score.
+- Debug test controls are hidden by default; press `F10` to show them.
 
-## V8 Changes
+## Gameplay / Test Controls
 
-- Added row/column goalkeeper save profiles in `Bm8PenaltyPrototype.cs`.
-- Saved balls now travel to `SavePalmWorld()`, pause/compress at the palm, then punch back into the field.
-- Yellow glove spheres now lock to the palm contact before applying the punch offset.
-- Save status now reads `SAVED - glove punches ball out`.
-- Unity batchmode verification was attempted at `Logs/v8-glove-lock-rebuild.log`, but Unity licensing initialization failed before compilation.
+- Click inside the goal grid to shoot.
+- Number keys or keypad `1` to `9` shoot the matching 3x3 zones.
+- `T` runs all 9 forced keeper-save zones.
+- `Y` runs only the top-row keeper-save zones.
+- `F10` toggles hidden debug buttons: `TEST 9`, `TEST TOP`, and `RESET`.
 
-## V9 Human Keeper Change
+If keyboard input does not work, click the Game view once outside the goal target area, or restart Play Mode.
 
-- `Bm8SceneBuilder.CreateVisibleFbxKeeper()` no longer prioritizes `Assets/animo/AA_Soccer_Goalkeeper/Prefabs/Robot.prefab`.
-- Rebuilt scenes now use the procedural 3D human keeper rig instead of any imported robot keeper.
-- If the current scene still contains an old Robot prefab instance, `Bm8PenaltyPrototype.DisableImportedRobotKeeper()` disables it at runtime so the procedural human keeper is visible.
-- The procedural keeper now wears a black/red BM8-style goalkeeper kit.
-- The yellow glove marker system remains active for glove-contact saves.
+## Verification
 
-## V10 Low-Poly Human Keeper Change
+Do not claim the keeper is fixed just by reading code. Verify at least the compile log, and if Unity is available, run a Play Mode smoke test.
 
-- Improved the procedural keeper proportions so it reads more like a low-poly 3D human instead of a robot.
-- Added visible face parts: eyes, nose, mouth, ears, and hair cap.
-- Added larger shoulders, skin forearms, sleeve trims, BM8 chest plate, white piping, black/red kit panels, boots, and glove palm plates.
-- This is still a primitive-based low-poly character, not a rigged realistic FBX model.
+Recommended compile/log check:
 
-## V11 Sprite Sheet Keeper Change
+```bash
+git diff --check -- Assets/Scripts/Bm8PenaltyPrototype.cs CODEX_HANDOFF.md
+touch Assets/Scripts/Bm8PenaltyPrototype.cs
+sleep 7
+tail -n 1800 ~/Library/Logs/Unity/Editor.log | rg -n "error CS|Exception|NullReferenceException|Scripts have compiler errors|ambiguous reference|timeout|Watchdog|FAIL|Look rotation viewing vector is zero" || true
+```
 
-- Added runtime support for `Assets/Art/Characters/keeper-sprite-sheet.png`.
-- When that file exists, the game creates a chroma-keyed sprite-sheet keeper quad and hides the primitive keeper body.
-- Added `Assets/Shaders/BM8ChromaKeySprite.shader` to remove the green background.
-- Sprite layout expected: 5 columns x 2 rows, matching the supplied keeper pose sheet.
-- `DiveKeeper()` now switches sprite frames during high, middle, and low saves while keeping the yellow glove contact markers active.
+Visual checks:
 
-## Validation Notes
-
-Do not merely assert the fix. If Wenxi provides another clip, inspect whether visible ball contact is actually at the gloves and whether TL/TC/TR/ML/MR/BL/BR have distinct heights/actions.
-
-Before changing anything, inspect the current files and preserve unrelated user changes.
+- Ready keeper should not look frozen.
+- Top-left/top-center/top-right saves should stay inside the goal frame.
+- Top-center should read as glove/hand tip, not a header.
+- Middle and low saves should not reuse the exact same height.
+- Saved ball should rebound away from the glove/contact point.
+- Keeper should hold the result pose briefly, then reset cleanly.
