@@ -683,7 +683,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         SetStatus("Keeper " + keeperAction + " " + GridName(keeperCol, keeperRow));
         PlayKeeperDiveAnimation(save);
         float keeperDuration = save ? keeperRow == 0 ? 1.38f : 1.08f : 0.92f;
-        StartCoroutine(DiveKeeper(keeperTarget, keeperDuration));
+        StartCoroutine(DiveKeeper(keeperTarget, keeperDuration, save));
         saveReboundSide = keeperCol == 1 ? (aimCol == 0 ? -1f : aimCol == 2 ? 1f : UnityEngine.Random.value < 0.5f ? -1f : 1f) : Mathf.Sign(keeperCol - 1f);
         yield return FlyBall(ballStart, target, save, save ? keeperRow == 0 ? 1.22f : 1.08f : 0.9f);
 
@@ -708,7 +708,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ResetPose();
         }
         yield return new WaitForSeconds(save ? keeperRow == 0 ? 1.65f : 1.35f : 0.9f);
-        yield return ReturnAllToReady(0.28f);
+        yield return ReturnAllToReady(save ? 0.42f : 0.28f);
         SetStatus("Tap goal");
         shooting = false;
     }
@@ -886,21 +886,24 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         ball.localScale = ballBaseScale;
     }
 
-    private IEnumerator DiveKeeper(Vector3 to, float duration)
+    private IEnumerator DiveKeeper(Vector3 to, float duration, bool saved)
     {
         if (UseAaAnimatedKeeper && keeperAnimator != null)
         {
+            float heldActionT = saved ? keeperRow == 0 ? 0.8f : keeperRow == 2 ? 0.76f : 0.74f : 1f;
             float holdElapsed = 0f;
             while (holdElapsed < duration)
             {
                 holdElapsed += Time.unscaledDeltaTime;
-                ApplyImportedKeeperActionOffset(Mathf.Clamp01(holdElapsed / duration));
+                float actionT = Mathf.Clamp01(holdElapsed / duration);
+                ApplyImportedKeeperActionOffset(saved ? Mathf.Min(actionT, heldActionT) : actionT);
                 keeper.position = keeperStart;
                 keeper.rotation = Quaternion.identity;
                 AnchorImportedKeeperVisibleModel();
                 yield return null;
             }
 
+            ApplyImportedKeeperActionOffset(heldActionT);
             keeper.position = keeperStart;
             keeper.rotation = Quaternion.identity;
             AnchorImportedKeeperVisibleModel();
