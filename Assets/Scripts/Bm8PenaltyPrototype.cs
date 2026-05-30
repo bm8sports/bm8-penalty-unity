@@ -101,6 +101,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private int forcedKeeperRow = 1;
     private bool forcedKeeperSave = true;
     private bool showDebugControls;
+    private bool keeperTestMode;
+    private int keeperTestShotIndex;
+    private int keeperTestShotTotal;
     private float shootingStartedRealtime;
     private double shootingStartedWallClock;
     private Vector3 importedKeeperAnchorLocalPosition = new Vector3(0f, 0f, -0.02f);
@@ -327,7 +330,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             status = status.Substring(0, 24);
         }
         GUI.Label(new Rect(width * 0.34f, topPad + 6f, width * 0.32f, topBarHeight * 0.26f), status.ToUpperInvariant(), title);
-        GUI.Label(new Rect(width * 0.34f, topPad + topBarHeight * 0.36f, width * 0.32f, topBarHeight * 0.22f), "GOALS " + goals + "   SAVES " + saves + "   SHOTS " + shotCount, small);
+        string scoreLine = keeperTestMode
+            ? "TEST " + keeperTestShotIndex + " / " + keeperTestShotTotal
+            : "GOALS " + goals + "   SAVES " + saves + "   SHOTS " + shotCount;
+        GUI.Label(new Rect(width * 0.34f, topPad + topBarHeight * 0.36f, width * 0.32f, topBarHeight * 0.22f), scoreLine, small);
 
         float chipStart = width * 0.27f;
         string[] chips = { "x2", "x4", "x12", "x20", "x32" };
@@ -714,10 +720,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             yield break;
         }
 
+        int previousGoals = goals;
+        int previousSaves = saves;
+        int previousShotCount = shotCount;
+        keeperTestMode = true;
+        keeperTestShotIndex = 0;
+        keeperTestShotTotal = 9;
         for (int row = 0; row < 3; row++)
         {
             for (int col = 0; col < 3; col++)
             {
+                keeperTestShotIndex++;
                 SetAimGrid(col, row);
                 forceKeeperTestShot = true;
                 forcedKeeperCol = col;
@@ -743,6 +756,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         forceKeeperTestShot = false;
+        keeperTestMode = false;
+        goals = previousGoals;
+        saves = previousSaves;
+        shotCount = previousShotCount;
+        UpdateScore();
         SetStatus("Test complete");
     }
 
@@ -753,8 +771,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             yield break;
         }
 
+        int previousGoals = goals;
+        int previousSaves = saves;
+        int previousShotCount = shotCount;
+        keeperTestMode = true;
+        keeperTestShotIndex = 0;
+        keeperTestShotTotal = 3;
         for (int col = 0; col < 3; col++)
         {
+            keeperTestShotIndex++;
             SetAimGrid(col, 0);
             forceKeeperTestShot = true;
             forcedKeeperCol = col;
@@ -779,6 +804,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         forceKeeperTestShot = false;
+        keeperTestMode = false;
+        goals = previousGoals;
+        saves = previousSaves;
+        shotCount = previousShotCount;
+        UpdateScore();
         SetStatus("Top test complete");
     }
 
