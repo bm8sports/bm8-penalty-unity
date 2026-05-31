@@ -436,6 +436,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float pulse = Mathf.Sin(Time.time * 22f) * 0.5f + 0.5f;
             Color flash = new Color(resultBannerColor.r, resultBannerColor.g, resultBannerColor.b, Mathf.Lerp(0.22f, 0.46f, Mathf.Max(pulse, pop)) * life);
             FillGuiRect(new Rect(0f, height * 0.31f, width, height * 0.2f), flash);
+            DrawResultBurst(age, life, width, height);
             GUIStyle bannerStyle = new GUIStyle(GUI.skin.label)
             {
                 alignment = TextAnchor.MiddleCenter,
@@ -444,6 +445,28 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 normal = { textColor = Color.white }
             };
             GUI.Label(new Rect(0f, height * 0.29f - pop * 10f, width, height * 0.22f), resultBanner, bannerStyle);
+        }
+    }
+
+    private void DrawResultBurst(float age, float life, float width, float height)
+    {
+        float burst = Mathf.Sin(Mathf.Clamp01(age / 0.56f) * Mathf.PI);
+        if (burst <= 0.001f)
+        {
+            return;
+        }
+
+        Vector2 center = new Vector2(width * 0.5f, height * 0.4f);
+        for (int i = 0; i < 24; i++)
+        {
+            float seed = i * 12.9898f;
+            float angle = i * Mathf.PI * 2f / 24f + Mathf.Sin(seed) * 0.18f;
+            float distance = Mathf.Lerp(34f, Mathf.Min(width, height) * 0.26f, burst) * Mathf.Lerp(0.72f, 1.18f, Mathf.Repeat(seed, 1f));
+            float size = Mathf.Lerp(10f, 3f, burst);
+            Vector2 pos = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle) * 0.62f) * distance;
+            Color color = Color.Lerp(resultBannerColor, new Color(1f, 0.95f, 0.2f), i % 2 == 0 ? 0.65f : 0.2f);
+            color.a = Mathf.Lerp(0.8f, 0.08f, burst) * life;
+            FillGuiRect(new Rect(pos.x - size * 0.5f, pos.y - size * 0.5f, size * 1.8f, size * 0.55f), color);
         }
     }
 
