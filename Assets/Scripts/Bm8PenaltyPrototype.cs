@@ -92,6 +92,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private int aimRow = 1;
     private int keeperCol = 1;
     private int keeperRow = 1;
+    private readonly bool[] shotHistoryGoals = new bool[5];
+    private readonly bool[] shotHistoryResolved = new bool[5];
     private bool shooting;
     private int goals;
     private int saves;
@@ -407,6 +409,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ? "TEST " + keeperTestShotIndex + " / " + keeperTestShotTotal
             : "GOALS " + goals + "   SAVES " + saves + "   SHOTS " + shotCount;
         GUI.Label(new Rect(width * 0.34f, topPad + topBarHeight * 0.36f, width * 0.32f, topBarHeight * 0.22f), scoreLine, small);
+        DrawShotHistoryLights(width, topPad, topBarHeight);
 
         float chipStart = width * 0.27f;
         string[] chips = { "x2", "x4", "x12", "x20", "x32" };
@@ -463,6 +466,28 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 };
                 GUI.Label(new Rect(0f, height * 0.48f + pop * 8f, width, height * 0.08f), resultMultiplierText, multiplierStyle);
             }
+        }
+    }
+
+    private void DrawShotHistoryLights(float width, float topPad, float topBarHeight)
+    {
+        float startX = width * 0.72f;
+        float y = topPad + topBarHeight * 0.24f;
+        float size = Mathf.Clamp(width * 0.012f, 9f, 15f);
+        for (int i = 0; i < shotHistoryResolved.Length; i++)
+        {
+            bool active = i == shotCount % shotHistoryResolved.Length && shooting;
+            float pulse = active ? Mathf.Sin(Time.time * 14f) * 0.5f + 0.5f : 0f;
+            Color color = shotHistoryResolved[i]
+                ? shotHistoryGoals[i] ? new Color(1f, 0.22f, 0.12f, 0.96f) : new Color(0.1f, 0.62f, 1f, 0.96f)
+                : new Color(0.38f, 0.38f, 0.42f, 0.72f);
+            if (active)
+            {
+                color = Color.Lerp(color, new Color(1f, 0.92f, 0.18f, 1f), pulse);
+                FillGuiRect(new Rect(startX + i * size * 2.1f - size * 0.55f, y - size * 0.55f, size * 2.1f, size * 2.1f), new Color(1f, 0.88f, 0.18f, 0.16f + 0.22f * pulse));
+            }
+
+            FillGuiRect(new Rect(startX + i * size * 2.1f, y, size, size), color);
         }
     }
 
@@ -690,6 +715,22 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         resultBannerStartedAt = Time.time;
         resultBannerUntil = Time.time + 1.7f;
         ShowResultGoalFlash(color);
+    }
+
+    private void RecordShotHistory(bool goal)
+    {
+        int index = (shotCount - 1) % shotHistoryResolved.Length;
+        if (index == 0)
+        {
+            for (int i = 0; i < shotHistoryResolved.Length; i++)
+            {
+                shotHistoryResolved[i] = false;
+                shotHistoryGoals[i] = false;
+            }
+        }
+
+        shotHistoryResolved[index] = true;
+        shotHistoryGoals[index] = goal;
     }
 
     private string TargetMultiplierLabel()
@@ -970,11 +1011,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (save)
         {
             saves++;
+            RecordShotHistory(false);
             ShowResultBanner("SAVED", new Color(0.1f, 0.55f, 1f));
         }
         else
         {
             goals++;
+            RecordShotHistory(true);
             ShowResultBanner("GOAL", new Color(1f, 0.2f, 0.12f));
         }
 
