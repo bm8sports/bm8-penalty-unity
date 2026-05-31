@@ -843,6 +843,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         UpdateScore();
         SetStatus(save ? "SAVED - " + keeperAction + " " + GridName(keeperCol, keeperRow) : "GOAL");
+        StartCoroutine(ResultCameraPunch(save, saveReboundSide, save ? 0.48f : 0.42f));
         if (save && !UseAaAnimatedKeeper)
         {
             keeper.position = keeperStart;
@@ -1267,6 +1268,46 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         cameraRig.position = ReadyCameraPosition();
         cameraRig.rotation = ReadyCameraRotation();
         ResetPose();
+    }
+
+    private IEnumerator ResultCameraPunch(bool saved, float reboundSide, float duration)
+    {
+        if (cameraRig == null)
+        {
+            yield break;
+        }
+
+        Vector3 from = cameraRig.position;
+        Quaternion rotationFrom = cameraRig.rotation;
+        float elapsed = 0f;
+        while (elapsed < duration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / duration);
+            float punch = Mathf.Sin(t * Mathf.PI);
+            float settle = Mathf.SmoothStep(0f, 1f, t);
+            float shake = Mathf.Sin(t * Mathf.PI * 18f) * punch * (saved ? 0.026f : 0.018f);
+            float side = saved ? reboundSide : Mathf.Sign(Mathf.Abs(aimX) < 0.1f ? reboundSide : aimX);
+
+            Vector3 offset = new Vector3(
+                side * (shake + punch * (saved ? 0.1f : 0.06f)),
+                punch * (saved ? 0.045f : 0.075f),
+                punch * (saved ? 0.22f : 0.36f));
+            cameraRig.position = from + offset;
+            cameraRig.rotation = rotationFrom * Quaternion.Euler(
+                punch * (saved ? -1.15f : -1.75f),
+                side * punch * (saved ? 1.45f : 0.85f),
+                side * punch * (saved ? 0.85f : 0.38f));
+
+            if (settle > 0.86f)
+            {
+                float restore = Mathf.InverseLerp(0.86f, 1f, settle);
+                cameraRig.position = Vector3.Lerp(cameraRig.position, from, restore);
+                cameraRig.rotation = Quaternion.Slerp(cameraRig.rotation, rotationFrom, restore);
+            }
+
+            yield return null;
+        }
     }
 
     private void ForceReadyReset()
