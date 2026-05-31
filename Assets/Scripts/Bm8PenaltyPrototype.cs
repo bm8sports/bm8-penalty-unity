@@ -124,6 +124,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private float targetPulseStartedAt;
     private float kickFlashUntil;
     private Vector3 kickFlashWorld;
+    private float shotSpeedLineUntil;
+    private float shotSpeedLineStartedAt;
+    private float shotSpeedLineSide;
 
     private void Awake()
     {
@@ -322,6 +325,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         DrawArcadeHud();
+        DrawShotSpeedLines();
         DrawKickFlash();
         DrawRuntimeTestButton();
         RunShotWatchdog();
@@ -433,6 +437,31 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 normal = { textColor = Color.white }
             };
             GUI.Label(new Rect(0f, height * 0.29f - pop * 10f, width, height * 0.22f), resultBanner, bannerStyle);
+        }
+    }
+
+    private void DrawShotSpeedLines()
+    {
+        if (Time.time >= shotSpeedLineUntil)
+        {
+            return;
+        }
+
+        float age = Mathf.Max(0f, Time.time - shotSpeedLineStartedAt);
+        float life = Mathf.Clamp01((shotSpeedLineUntil - Time.time) / Mathf.Max(0.1f, shotSpeedLineUntil - shotSpeedLineStartedAt));
+        float width = Screen.width;
+        float height = Screen.height;
+        float sweep = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(age / 0.32f));
+        Color color = new Color(1f, 0.95f, 0.32f, 0.22f * life);
+
+        for (int i = 0; i < 9; i++)
+        {
+            float y = height * (0.2f + i * 0.075f);
+            float x = Mathf.Lerp(-width * 0.15f, width * 0.74f, sweep) + i * 17f * shotSpeedLineSide;
+            float lineWidth = Mathf.Lerp(width * 0.28f, width * 0.08f, i / 8f);
+            float thickness = Mathf.Lerp(5f, 1.8f, i / 8f);
+            FillGuiRect(new Rect(x, y, lineWidth, thickness), color);
+            FillGuiRect(new Rect(width - x - lineWidth, height - y, lineWidth, thickness), color);
         }
     }
 
@@ -1290,6 +1319,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             keeperRow == 0 ? 0.24f : 0.28f,
             UnityEngine.Random.Range(keeperRow == 0 ? -3.65f : -3.25f, keeperRow == 0 ? -2.85f : -2.45f));
         float lastT = 0f;
+        shotSpeedLineStartedAt = Time.time;
+        shotSpeedLineUntil = Time.time + 0.56f;
+        shotSpeedLineSide = Mathf.Abs(to.x) < 0.1f ? 1f : Mathf.Sign(to.x);
 
         while (elapsed < duration)
         {
