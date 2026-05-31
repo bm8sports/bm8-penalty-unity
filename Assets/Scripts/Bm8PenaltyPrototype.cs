@@ -331,6 +331,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         DrawArcadeHud();
+        DrawShootingActionOverlay();
         DrawTargetLockOverlay();
         DrawShotSpeedLines();
         DrawKickFlash();
@@ -467,6 +468,36 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             Color color = Color.Lerp(resultBannerColor, new Color(1f, 0.95f, 0.2f), i % 2 == 0 ? 0.65f : 0.2f);
             color.a = Mathf.Lerp(0.8f, 0.08f, burst) * life;
             FillGuiRect(new Rect(pos.x - size * 0.5f, pos.y - size * 0.5f, size * 1.8f, size * 0.55f), color);
+        }
+    }
+
+    private void DrawShootingActionOverlay()
+    {
+        if (!shooting || !string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil)
+        {
+            return;
+        }
+
+        float age = Mathf.Max(0f, Time.realtimeSinceStartup - shootingStartedRealtime);
+        float width = Screen.width;
+        float height = Screen.height;
+        float charge = Mathf.Clamp01(age / 1.25f);
+        float pulse = Mathf.Sin(Time.time * 14f) * 0.5f + 0.5f;
+        float sideAlpha = Mathf.Lerp(0.06f, 0.22f, Mathf.Max(charge, pulse * 0.55f));
+        FillGuiRect(new Rect(0f, 0f, width * 0.16f, height), new Color(0f, 0f, 0f, sideAlpha));
+        FillGuiRect(new Rect(width * 0.84f, 0f, width * 0.16f, height), new Color(0f, 0f, 0f, sideAlpha));
+        FillGuiRect(new Rect(0f, 0f, width, height * 0.075f), new Color(0f, 0f, 0f, sideAlpha * 0.72f));
+        FillGuiRect(new Rect(0f, height * 0.925f, width, height * 0.075f), new Color(0f, 0f, 0f, sideAlpha * 0.72f));
+
+        for (int i = 0; i < 7; i++)
+        {
+            float y = height * (0.24f + i * 0.078f);
+            float phase = Mathf.Repeat(Time.time * 0.92f + i * 0.13f, 1f);
+            float x = Mathf.Lerp(-width * 0.18f, width * 1.05f, phase);
+            float lineWidth = Mathf.Lerp(width * 0.2f, width * 0.42f, charge);
+            Color color = new Color(1f, 0.84f, 0.12f, Mathf.Lerp(0.04f, 0.16f, pulse) * (0.65f + charge * 0.35f));
+            FillGuiRect(new Rect(x, y, lineWidth, 2.5f), color);
+            FillGuiRect(new Rect(width - x - lineWidth, height - y, lineWidth, 2.5f), color);
         }
     }
 
