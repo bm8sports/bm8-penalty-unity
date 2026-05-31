@@ -3057,6 +3057,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         goalNetImpact.rotation = Quaternion.Euler(0f, 180f, side * Mathf.Lerp(-8f, 14f, visible));
         float size = Mathf.Lerp(0.42f, 1.55f, visible);
         goalNetImpact.localScale = new Vector3(size * 1.22f, size, 1f);
+        UpdateGoalNetWarp(visible, impactPoint);
         if (goalNetImpactMaterial != null)
         {
             goalNetImpactMaterial.color = new Color(1f, 0.86f, 0.18f, Mathf.Lerp(0.12f, 0.72f, visible));
@@ -3068,6 +3069,83 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (goalNetImpact != null)
         {
             goalNetImpact.gameObject.SetActive(false);
+        }
+
+        ResetGoalNetWarp();
+    }
+
+    private void UpdateGoalNetWarp(float intensity, Vector3 impactPoint)
+    {
+        Transform backdrop = transform.Find("BM8 Arcade Backdrop");
+        if (backdrop == null)
+        {
+            return;
+        }
+
+        float visible = Mathf.Clamp01(intensity);
+        for (int i = 0; i <= 6; i++)
+        {
+            Transform line = backdrop.Find("Net Vertical " + i);
+            if (line == null)
+            {
+                continue;
+            }
+
+            float baseX = Mathf.Lerp(-3.05f, 3.05f, i / 6f);
+            float pull = Mathf.Clamp01(1f - Mathf.Abs(baseX - impactPoint.x) / 2.4f);
+            float wave = Mathf.Sin(Time.time * 38f + i * 0.72f) * 0.018f * visible;
+            line.position = new Vector3(baseX + wave, 1.42f, 5.18f + 0.28f * visible * pull);
+            line.localScale = new Vector3(0.01f, 2.18f + 0.2f * visible * pull, 0.01f);
+        }
+
+        for (int i = 0; i <= 5; i++)
+        {
+            Transform line = backdrop.Find("Net Horizontal " + i);
+            if (line == null)
+            {
+                continue;
+            }
+
+            float baseY = Mathf.Lerp(0.38f, 2.48f, i / 5f);
+            float pull = Mathf.Clamp01(1f - Mathf.Abs(baseY - impactPoint.y) / 1.05f);
+            float wave = Mathf.Sin(Time.time * 42f + i * 0.61f) * 0.012f * visible;
+            line.position = new Vector3(wave, baseY, 5.17f + 0.32f * visible * pull);
+            line.localScale = new Vector3(6.12f + 0.34f * visible * pull, 0.01f, 0.01f);
+        }
+    }
+
+    private void ResetGoalNetWarp()
+    {
+        Transform backdrop = transform.Find("BM8 Arcade Backdrop");
+        if (backdrop == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i <= 6; i++)
+        {
+            Transform line = backdrop.Find("Net Vertical " + i);
+            if (line == null)
+            {
+                continue;
+            }
+
+            float x = Mathf.Lerp(-3.05f, 3.05f, i / 6f);
+            line.position = new Vector3(x, 1.42f, 5.18f);
+            line.localScale = new Vector3(0.01f, 2.18f, 0.01f);
+        }
+
+        for (int i = 0; i <= 5; i++)
+        {
+            Transform line = backdrop.Find("Net Horizontal " + i);
+            if (line == null)
+            {
+                continue;
+            }
+
+            float y = Mathf.Lerp(0.38f, 2.48f, i / 5f);
+            line.position = new Vector3(0f, y, 5.17f);
+            line.localScale = new Vector3(6.12f, 0.01f, 0.01f);
         }
     }
 
