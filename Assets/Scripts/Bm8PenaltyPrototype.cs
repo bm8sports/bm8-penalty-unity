@@ -187,6 +187,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         UpdateGoalGridOverlay();
         UpdateResultGoalFlash();
+        UpdateArcadeBackdropPulse();
         RunShotWatchdog();
 
         if (shooting && Time.realtimeSinceStartup - shootingStartedRealtime > ShotWatchdogSeconds)
@@ -3303,6 +3304,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         EnsureWorldBox(backdrop, "Left Ad Board", new Vector3(-4.35f, 0.55f, 3.8f), new Vector3(0.12f, 0.72f, 2.2f), new Color(0.03f, 0.03f, 0.035f));
         EnsureWorldBox(backdrop, "Right Ad Board", new Vector3(4.35f, 0.55f, 3.8f), new Vector3(0.12f, 0.72f, 2.2f), new Color(0.03f, 0.03f, 0.035f));
 
+        for (int i = 0; i < 9; i++)
+        {
+            float x = Mathf.Lerp(-3.55f, 3.55f, i / 8f);
+            EnsureWorldBox(backdrop, "Chase Light " + i, new Vector3(x, 3.42f, 5.08f), new Vector3(0.32f, 0.09f, 0.08f), i % 2 == 0 ? new Color(1f, 0.18f, 0.12f) : new Color(1f, 0.84f, 0.14f));
+        }
+
         for (int i = 0; i <= 6; i++)
         {
             float x = Mathf.Lerp(-3.05f, 3.05f, i / 6f);
@@ -3314,6 +3321,50 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float y = Mathf.Lerp(0.38f, 2.48f, i / 5f);
             EnsureWorldBox(backdrop, "Net Horizontal " + i, new Vector3(0f, y, 5.17f), new Vector3(6.12f, 0.01f, 0.01f), new Color(0.34f, 0.44f, 0.54f));
         }
+    }
+
+    private void UpdateArcadeBackdropPulse()
+    {
+        Transform backdrop = transform.Find("BM8 Arcade Backdrop");
+        if (backdrop == null)
+        {
+            return;
+        }
+
+        float time = Time.time;
+        for (int i = 0; i < 9; i++)
+        {
+            Transform light = backdrop.Find("Chase Light " + i);
+            if (light == null)
+            {
+                continue;
+            }
+
+            float x = Mathf.Lerp(-3.55f, 3.55f, i / 8f);
+            float pulse = Mathf.Sin(time * 6.4f - i * 0.78f) * 0.5f + 0.5f;
+            float hot = Mathf.SmoothStep(0.18f, 1f, pulse);
+            light.position = new Vector3(x, 3.42f + hot * 0.035f, 5.08f);
+            light.localScale = new Vector3(Mathf.Lerp(0.24f, 0.42f, hot), Mathf.Lerp(0.06f, 0.14f, hot), 0.08f);
+            SetExistingMaterialColor(light, Color.Lerp(new Color(0.28f, 0.03f, 0.025f), i % 2 == 0 ? new Color(1f, 0.16f, 0.1f) : new Color(1f, 0.9f, 0.18f), hot));
+        }
+
+        Transform band = backdrop.Find("Top Light Band");
+        if (band != null)
+        {
+            float bandPulse = Mathf.Sin(time * 3.2f) * 0.5f + 0.5f;
+            SetExistingMaterialColor(band, Color.Lerp(new Color(0.26f, 0.19f, 0.055f), new Color(0.86f, 0.72f, 0.18f), bandPulse));
+        }
+    }
+
+    private static void SetExistingMaterialColor(Transform part, Color color)
+    {
+        Renderer renderer = part != null ? part.GetComponent<Renderer>() : null;
+        if (renderer == null || renderer.sharedMaterial == null)
+        {
+            return;
+        }
+
+        renderer.sharedMaterial.color = color;
     }
 
     private void HideSolidGoalNetBackdrop()
