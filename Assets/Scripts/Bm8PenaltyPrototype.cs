@@ -120,6 +120,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Vector3 importedKeeperReadyBoundsCenterLocal;
     private bool importedKeeperBoundsCaptured;
     private string resultBanner = "";
+    private string resultMultiplierText = "";
     private float resultBannerUntil;
     private float resultBannerStartedAt;
     private Color resultBannerColor = Color.white;
@@ -451,6 +452,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 normal = { textColor = Color.white }
             };
             GUI.Label(new Rect(0f, height * 0.29f - pop * 10f, width, height * 0.22f), resultBanner, bannerStyle);
+            if (!string.IsNullOrEmpty(resultMultiplierText))
+            {
+                GUIStyle multiplierStyle = new GUIStyle(GUI.skin.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = Mathf.RoundToInt(Mathf.Clamp(height * Mathf.Lerp(0.032f, 0.052f, pop), 16f, 34f)),
+                    fontStyle = FontStyle.Bold,
+                    normal = { textColor = new Color(1f, 0.92f, 0.2f, Mathf.Clamp01(life + 0.15f)) }
+                };
+                GUI.Label(new Rect(0f, height * 0.48f + pop * 8f, width, height * 0.08f), resultMultiplierText, multiplierStyle);
+            }
         }
     }
 
@@ -673,10 +685,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private void ShowResultBanner(string message, Color color)
     {
         resultBanner = message;
+        resultMultiplierText = TargetMultiplierLabel() + (message == "GOAL" ? " HIT" : " SAVED");
         resultBannerColor = color;
         resultBannerStartedAt = Time.time;
         resultBannerUntil = Time.time + 1.7f;
         ShowResultGoalFlash(color);
+    }
+
+    private string TargetMultiplierLabel()
+    {
+        string[] labels = { "x2", "x4", "x12", "x20", "x32" };
+        return labels[Mathf.Clamp(TargetMultiplierIndex(), 0, labels.Length - 1)];
     }
 
     private int TargetMultiplierIndex()
