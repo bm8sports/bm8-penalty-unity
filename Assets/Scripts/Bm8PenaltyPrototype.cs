@@ -131,6 +131,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private float shotSpeedLineUntil;
     private float shotSpeedLineStartedAt;
     private float shotSpeedLineSide;
+    private float saveDustStartedAt;
+    private float saveDustUntil;
+    private Vector3 saveDustWorld;
+    private float saveDustSide;
 
     private void Awake()
     {
@@ -334,6 +338,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         DrawShootingActionOverlay();
         DrawTargetLockOverlay();
         DrawShotSpeedLines();
+        DrawSaveDropDust();
         DrawKickFlash();
         DrawRuntimeTestButton();
         RunShotWatchdog();
@@ -523,6 +528,35 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float thickness = Mathf.Lerp(5f, 1.8f, i / 8f);
             FillGuiRect(new Rect(x, y, lineWidth, thickness), color);
             FillGuiRect(new Rect(width - x - lineWidth, height - y, lineWidth, thickness), color);
+        }
+    }
+
+    private void DrawSaveDropDust()
+    {
+        if (Time.time >= saveDustUntil || Camera.main == null)
+        {
+            return;
+        }
+
+        Vector3 screen = Camera.main.WorldToScreenPoint(saveDustWorld);
+        if (screen.z <= 0f)
+        {
+            return;
+        }
+
+        float age = Mathf.Max(0f, Time.time - saveDustStartedAt);
+        float life = Mathf.Clamp01((saveDustUntil - Time.time) / Mathf.Max(0.1f, saveDustUntil - saveDustStartedAt));
+        float burst = Mathf.Sin(Mathf.Clamp01(age / 0.36f) * Mathf.PI);
+        Vector2 center = new Vector2(screen.x, Screen.height - screen.y);
+        for (int i = 0; i < 10; i++)
+        {
+            float seed = i * 9.173f;
+            float spread = Mathf.Lerp(8f, 62f, burst) * Mathf.Lerp(0.72f, 1.18f, Mathf.Repeat(seed, 1f));
+            float x = center.x + saveDustSide * spread + Mathf.Sin(seed) * 18f * burst;
+            float y = center.y + Mathf.Cos(seed) * 8f * burst;
+            float width = Mathf.Lerp(18f, 6f, burst);
+            float height = Mathf.Lerp(7f, 2f, burst);
+            FillGuiRect(new Rect(x - width * 0.5f, y - height * 0.5f, width, height), new Color(0.88f, 0.78f, 0.52f, Mathf.Lerp(0.5f, 0.04f, burst) * life));
         }
     }
 
@@ -1453,6 +1487,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         shotSpeedLineStartedAt = Time.time;
         shotSpeedLineUntil = Time.time + 0.56f;
         shotSpeedLineSide = Mathf.Abs(to.x) < 0.1f ? 1f : Mathf.Sign(to.x);
+        bool saveDustTriggered = false;
 
         while (elapsed < duration)
         {
@@ -1491,6 +1526,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     float fallT = (t - punchTime) / (1f - punchTime);
                     position = Vector3.Lerp(deflect, drop, EaseOut(fallT, keeperRow == 0 ? 1.45f : 1.18f));
                     position.y += Mathf.Sin(fallT * Mathf.PI) * (keeperRow == 0 ? 0.12f : 0.22f);
+                    if (!saveDustTriggered && fallT > 0.56f)
+                    {
+                        saveDustTriggered = true;
+                        saveDustWorld = new Vector3(position.x, 0.12f, position.z);
+                        saveDustSide = reboundSide;
+                        saveDustStartedAt = Time.time;
+                        saveDustUntil = Time.time + 0.58f;
+                    }
                 }
             }
             else
