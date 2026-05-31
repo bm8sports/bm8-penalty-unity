@@ -2675,12 +2675,34 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail = ball.gameObject.AddComponent<TrailRenderer>();
         }
 
-        ballTrail.time = 0.42f;
-        ballTrail.startWidth = 0.18f;
-        ballTrail.endWidth = 0.035f;
+        ballTrail.time = 0.58f;
+        ballTrail.startWidth = 0.26f;
+        ballTrail.endWidth = 0.018f;
+        ballTrail.minVertexDistance = 0.025f;
+        ballTrail.numCapVertices = 8;
+        ballTrail.numCornerVertices = 6;
+        ballTrail.alignment = LineAlignment.View;
+        ballTrail.textureMode = LineTextureMode.Stretch;
+        ballTrail.widthCurve = new AnimationCurve(
+            new Keyframe(0f, 1f),
+            new Keyframe(0.42f, 0.64f),
+            new Keyframe(1f, 0.06f));
         ballTrail.material = new Material(Shader.Find("Sprites/Default"));
-        ballTrail.startColor = new Color(1f, 0.96f, 0.35f, 1f);
-        ballTrail.endColor = new Color(1f, 0.22f, 0.08f, 0f);
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            new[]
+            {
+                new GradientColorKey(new Color(1f, 1f, 1f), 0f),
+                new GradientColorKey(new Color(1f, 0.88f, 0.16f), 0.34f),
+                new GradientColorKey(new Color(1f, 0.18f, 0.08f), 1f)
+            },
+            new[]
+            {
+                new GradientAlphaKey(0.98f, 0f),
+                new GradientAlphaKey(0.72f, 0.38f),
+                new GradientAlphaKey(0f, 1f)
+            });
+        ballTrail.colorGradient = gradient;
         ballTrail.Clear();
     }
 
