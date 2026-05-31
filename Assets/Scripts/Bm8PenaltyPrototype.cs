@@ -83,6 +83,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Material saveContactStreakMaterial;
     private Transform resultGoalFlash;
     private Material resultGoalFlashMaterial;
+    private Transform goalNetImpact;
+    private Material goalNetImpactMaterial;
     private float resultGoalFlashUntil;
     private Color resultGoalFlashColor = Color.white;
     private RectTransform goalGrid;
@@ -165,6 +167,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         EnsureSaveShockwave();
         EnsureSaveContactStreak();
         EnsureResultGoalFlash();
+        EnsureGoalNetImpact();
         HideSolidGoalNetBackdrop();
         EnsureArcadeBackdrop();
         CreateNineTargetGrid();
@@ -758,6 +761,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         HideSaveShockwave();
         HideSaveContactStreak();
         HideResultGoalFlash();
+        HideGoalNetImpact();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -787,6 +791,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         HideSaveShockwave();
         HideSaveContactStreak();
         HideResultGoalFlash();
+        HideGoalNetImpact();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -1252,6 +1257,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         HideSaveShockwave();
         HideSaveContactStreak();
         HideResultGoalFlash();
+        HideGoalNetImpact();
 
         player.position = playerStart;
         player.rotation = Quaternion.identity;
@@ -1379,6 +1385,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             UpdateSaveImpactFlash(saved ? presentationImpact : 0f, contact);
             UpdateSaveShockwave(saved ? impactBurst : 0f, contact);
             UpdateSaveContactStreak(saved ? presentationImpact : 0f, contact, reboundSide);
+            float goalNetImpact = saved ? 0f : Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.72f, 0.98f, t)) * Mathf.PI);
+            UpdateGoalNetImpact(goalNetImpact, new Vector3(position.x, position.y, 4.92f), side);
             float saveSpinBoost = keeperRow == 0 ? 1.22f : 1f;
             ball.Rotate(new Vector3(saved ? 1760f * saveSpinBoost : 920f, saved ? -720f * saveSpinBoost : 260f, side * 220f + reboundSide * (saved ? 620f * saveSpinBoost : 0f)) * Time.unscaledDeltaTime, Space.World);
             Vector3 cameraBase = ShotCameraPosition(t, presentationImpact, saved, reboundSide);
@@ -1393,6 +1401,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         HideSaveShockwave();
         HideSaveContactStreak();
         ball.localScale = ballBaseScale;
+        HideGoalNetImpact();
         UpdateBallShadow();
     }
 
@@ -2969,6 +2978,74 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (saveContactStreak != null)
         {
             saveContactStreak.gameObject.SetActive(false);
+        }
+    }
+
+    private void EnsureGoalNetImpact()
+    {
+        Transform existing = transform.Find("BM8 Goal Net Impact");
+        goalNetImpact = existing;
+        if (goalNetImpact == null)
+        {
+            GameObject impact = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            impact.name = "BM8 Goal Net Impact";
+            goalNetImpact = impact.transform;
+            goalNetImpact.SetParent(transform, false);
+
+            Collider collider = impact.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Destroy(collider);
+            }
+        }
+
+        Renderer renderer = goalNetImpact.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            goalNetImpactMaterial = new Material(Shader.Find("Sprites/Default"));
+            goalNetImpactMaterial.mainTexture = CreateShockwaveTexture();
+            goalNetImpactMaterial.color = new Color(1f, 0.88f, 0.18f, 0f);
+            renderer.sharedMaterial = goalNetImpactMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+
+        HideGoalNetImpact();
+    }
+
+    private void UpdateGoalNetImpact(float intensity, Vector3 impactPoint, float side)
+    {
+        if (goalNetImpact == null)
+        {
+            return;
+        }
+
+        float visible = Mathf.Clamp01(intensity);
+        if (visible <= 0.001f)
+        {
+            HideGoalNetImpact();
+            return;
+        }
+
+        goalNetImpact.gameObject.SetActive(true);
+        goalNetImpact.position = new Vector3(
+            Mathf.Clamp(impactPoint.x, -2.45f, 2.45f),
+            Mathf.Clamp(impactPoint.y, 0.95f, 2.65f),
+            4.72f);
+        goalNetImpact.rotation = Quaternion.Euler(0f, 180f, side * Mathf.Lerp(-8f, 14f, visible));
+        float size = Mathf.Lerp(0.42f, 1.55f, visible);
+        goalNetImpact.localScale = new Vector3(size * 1.22f, size, 1f);
+        if (goalNetImpactMaterial != null)
+        {
+            goalNetImpactMaterial.color = new Color(1f, 0.86f, 0.18f, Mathf.Lerp(0.12f, 0.72f, visible));
+        }
+    }
+
+    private void HideGoalNetImpact()
+    {
+        if (goalNetImpact != null)
+        {
+            goalNetImpact.gameObject.SetActive(false);
         }
     }
 
