@@ -124,6 +124,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private float resultBannerStartedAt;
     private Color resultBannerColor = Color.white;
     private float targetPulseStartedAt;
+    private float targetLockStartedAt;
+    private float targetLockUntil;
     private float kickFlashUntil;
     private Vector3 kickFlashWorld;
     private float shotSpeedLineUntil;
@@ -329,6 +331,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         DrawArcadeHud();
+        DrawTargetLockOverlay();
         DrawShotSpeedLines();
         DrawKickFlash();
         DrawRuntimeTestButton();
@@ -467,6 +470,30 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             FillGuiRect(new Rect(x, y, lineWidth, thickness), color);
             FillGuiRect(new Rect(width - x - lineWidth, height - y, lineWidth, thickness), color);
         }
+    }
+
+    private void DrawTargetLockOverlay()
+    {
+        if (Time.time >= targetLockUntil || !TryGetGoalGuiRect(out Rect goalRect))
+        {
+            return;
+        }
+
+        float age = Mathf.Max(0f, Time.time - targetLockStartedAt);
+        float life = Mathf.Clamp01((targetLockUntil - Time.time) / Mathf.Max(0.1f, targetLockUntil - targetLockStartedAt));
+        float cellWidth = goalRect.width / 3f;
+        float cellHeight = goalRect.height / 3f;
+        Rect cell = new Rect(goalRect.x + aimCol * cellWidth, goalRect.y + aimRow * cellHeight, cellWidth, cellHeight);
+        float pulse = Mathf.Sin(age * 24f) * 0.5f + 0.5f;
+        float inset = Mathf.Lerp(10f, 2f, Mathf.Sin(Mathf.Clamp01(age / 0.18f) * Mathf.PI));
+        Rect glow = new Rect(cell.x + inset, cell.y + inset, cell.width - inset * 2f, cell.height - inset * 2f);
+        Color fill = new Color(1f, 0.82f, 0.08f, Mathf.Lerp(0.08f, 0.26f, pulse) * life);
+        Color border = new Color(1f, 0.96f, 0.25f, Mathf.Lerp(0.42f, 0.92f, pulse) * life);
+        FillGuiRect(glow, fill);
+        FillGuiRect(new Rect(glow.x, glow.y, glow.width, 4f), border);
+        FillGuiRect(new Rect(glow.x, glow.yMax - 4f, glow.width, 4f), border);
+        FillGuiRect(new Rect(glow.x, glow.y, 4f, glow.height), border);
+        FillGuiRect(new Rect(glow.xMax - 4f, glow.y, 4f, glow.height), border);
     }
 
     private void DrawKickFlash()
@@ -742,6 +769,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         aimX = GridX(aimCol);
         aimY = GridY(aimRow);
         targetPulseStartedAt = Time.time;
+        targetLockStartedAt = Time.time;
+        targetLockUntil = Time.time + 0.78f;
     }
 
     public void ResetShot()
