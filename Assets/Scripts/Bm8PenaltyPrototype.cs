@@ -138,6 +138,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private float saveDustUntil;
     private Vector3 saveDustWorld;
     private float saveDustSide;
+    private float saveContactSparkStartedAt;
+    private float saveContactSparkUntil;
+    private Vector3 saveContactSparkWorld;
 
     private void Awake()
     {
@@ -342,6 +345,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         DrawTargetLockOverlay();
         DrawShotSpeedLines();
         DrawSaveDropDust();
+        DrawSaveContactSpark();
         DrawKickFlash();
         DrawRuntimeTestButton();
         RunShotWatchdog();
@@ -595,6 +599,33 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float height = Mathf.Lerp(7f, 2f, burst);
             FillGuiRect(new Rect(x - width * 0.5f, y - height * 0.5f, width, height), new Color(0.88f, 0.78f, 0.52f, Mathf.Lerp(0.5f, 0.04f, burst) * life));
         }
+    }
+
+    private void DrawSaveContactSpark()
+    {
+        if (Time.time >= saveContactSparkUntil || Camera.main == null)
+        {
+            return;
+        }
+
+        Vector3 screen = Camera.main.WorldToScreenPoint(saveContactSparkWorld);
+        if (screen.z <= 0f)
+        {
+            return;
+        }
+
+        float age = Mathf.Max(0f, Time.time - saveContactSparkStartedAt);
+        float life = Mathf.Clamp01((saveContactSparkUntil - Time.time) / Mathf.Max(0.1f, saveContactSparkUntil - saveContactSparkStartedAt));
+        float pop = Mathf.Sin(Mathf.Clamp01(age / 0.18f) * Mathf.PI);
+        Vector2 center = new Vector2(screen.x, Screen.height - screen.y);
+        float length = Mathf.Lerp(18f, 76f, pop);
+        float thickness = Mathf.Lerp(7f, 2.5f, pop);
+        Color gold = new Color(1f, 0.94f, 0.18f, Mathf.Lerp(0.85f, 0.12f, pop) * life);
+        Color white = new Color(1f, 1f, 1f, Mathf.Lerp(0.75f, 0.08f, pop) * life);
+        FillGuiRect(new Rect(center.x - length * 0.5f, center.y - thickness * 0.5f, length, thickness), gold);
+        FillGuiRect(new Rect(center.x - thickness * 0.5f, center.y - length * 0.5f, thickness, length), white);
+        FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f - length * 0.22f, length * 0.72f, thickness), gold);
+        FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f + length * 0.22f, length * 0.72f, thickness), gold);
     }
 
     private void DrawTargetLockOverlay()
@@ -1557,6 +1588,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / duration);
             if (saved && t >= contactTime && lastT < contactTime)
             {
+                saveContactSparkWorld = contact;
+                saveContactSparkStartedAt = Time.time;
+                saveContactSparkUntil = Time.time + 0.34f;
                 yield return null;
             }
             lastT = t;
