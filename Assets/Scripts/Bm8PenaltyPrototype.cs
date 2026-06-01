@@ -2751,7 +2751,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
         if (keeperRow == 0)
         {
-            return keeperStart + new Vector3(side * 0.72f, 0.36f, -0.12f);
+            return keeperStart + new Vector3(side * 0.38f, 0.04f, -0.08f);
         }
 
         if (keeperRow == 2)
@@ -2772,7 +2772,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
         if (keeperRow == 0)
         {
-            return Quaternion.Euler(-4f, side * 5f, -side * 7f);
+            return Quaternion.Euler(-2f, side * 3f, -side * 3f);
         }
 
         if (keeperRow == 2)
