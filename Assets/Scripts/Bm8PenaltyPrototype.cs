@@ -341,6 +341,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         DrawArcadeHud();
+        DrawIdleGoalGridGlow();
         DrawShootingActionOverlay();
         DrawTargetLockOverlay();
         DrawShotSpeedLines();
@@ -626,6 +627,30 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         FillGuiRect(new Rect(center.x - thickness * 0.5f, center.y - length * 0.5f, thickness, length), white);
         FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f - length * 0.22f, length * 0.72f, thickness), gold);
         FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f + length * 0.22f, length * 0.72f, thickness), gold);
+    }
+
+    private void DrawIdleGoalGridGlow()
+    {
+        if (shooting || !TryGetGoalGuiRect(out Rect goalRect))
+        {
+            return;
+        }
+
+        float cellWidth = goalRect.width / 3f;
+        float cellHeight = goalRect.height / 3f;
+        float pulse = Mathf.Sin(Time.time * 3.2f) * 0.5f + 0.5f;
+        Color line = new Color(1f, 0.86f, 0.18f, Mathf.Lerp(0.08f, 0.18f, pulse));
+        Color selected = new Color(1f, 0.92f, 0.18f, Mathf.Lerp(0.06f, 0.14f, pulse));
+        Rect selectedCell = new Rect(goalRect.x + aimCol * cellWidth, goalRect.y + aimRow * cellHeight, cellWidth, cellHeight);
+        FillGuiRect(new Rect(selectedCell.x + 4f, selectedCell.y + 4f, selectedCell.width - 8f, selectedCell.height - 8f), selected);
+
+        for (int i = 1; i < 3; i++)
+        {
+            float x = goalRect.x + cellWidth * i;
+            float y = goalRect.y + cellHeight * i;
+            FillGuiRect(new Rect(x - 1f, goalRect.y, 2f, goalRect.height), line);
+            FillGuiRect(new Rect(goalRect.x, y - 1f, goalRect.width, 2f), line);
+        }
     }
 
     private void DrawTargetLockOverlay()
