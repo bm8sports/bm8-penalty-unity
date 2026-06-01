@@ -144,6 +144,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private float saveContactSparkStartedAt;
     private float saveContactSparkUntil;
     private Vector3 saveContactSparkWorld;
+    private float goalLandingGlowStartedAt;
+    private float goalLandingGlowUntil;
+    private Vector3 goalLandingGlowWorld;
 
     private void Awake()
     {
@@ -354,6 +357,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         DrawShotSpeedLines();
         DrawSaveDropDust();
         DrawSaveContactSpark();
+        DrawGoalLandingGlow();
         DrawKickFlash();
         DrawRuntimeTestButton();
         RunShotWatchdog();
@@ -654,6 +658,46 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         FillGuiRect(new Rect(center.x - thickness * 0.5f, center.y - length * 0.5f, thickness, length), white);
         FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f - length * 0.22f, length * 0.72f, thickness), gold);
         FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f + length * 0.22f, length * 0.72f, thickness), gold);
+    }
+
+    private void DrawGoalLandingGlow()
+    {
+        if (Time.time >= goalLandingGlowUntil || Camera.main == null)
+        {
+            return;
+        }
+
+        Vector3 screen = Camera.main.WorldToScreenPoint(goalLandingGlowWorld);
+        if (screen.z <= 0f)
+        {
+            return;
+        }
+
+        float age = Mathf.Max(0f, Time.time - goalLandingGlowStartedAt);
+        float duration = Mathf.Max(0.1f, goalLandingGlowUntil - goalLandingGlowStartedAt);
+        float progress = Mathf.Clamp01(age / duration);
+        float life = 1f - progress;
+        float pop = Mathf.Sin(Mathf.Clamp01(age / 0.32f) * Mathf.PI);
+        Vector2 center = new Vector2(screen.x, Screen.height - screen.y);
+        Color gold = new Color(1f, 0.9f, 0.12f, Mathf.Lerp(0.58f, 0.04f, progress));
+        Color red = new Color(1f, 0.18f, 0.08f, Mathf.Lerp(0.38f, 0.02f, progress));
+        Color white = new Color(1f, 1f, 1f, Mathf.Lerp(0.72f, 0.05f, progress));
+
+        float core = Mathf.Lerp(18f, 52f, pop);
+        FillGuiRect(new Rect(center.x - core * 0.5f, center.y - core * 0.12f, core, core * 0.24f), gold);
+        FillGuiRect(new Rect(center.x - core * 0.12f, center.y - core * 0.5f, core * 0.24f, core), white);
+
+        for (int i = 0; i < 8; i++)
+        {
+            float angle = i * Mathf.PI * 0.25f;
+            float distance = Mathf.Lerp(18f, 88f, progress) * Mathf.Lerp(0.82f, 1.18f, Mathf.Repeat(i * 0.37f, 1f));
+            float width = Mathf.Lerp(26f, 7f, progress);
+            float height = Mathf.Lerp(5f, 2f, progress);
+            Vector2 ray = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            Color rayColor = i % 2 == 0 ? gold : red;
+            rayColor.a *= life;
+            FillGuiRect(new Rect(center.x + ray.x * distance - width * 0.5f, center.y + ray.y * distance - height * 0.5f, width, height), rayColor);
+        }
     }
 
     private void DrawIdleGoalGridGlow()
@@ -1750,6 +1794,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         shotSpeedLineUntil = Time.time + 0.56f;
         shotSpeedLineSide = Mathf.Abs(to.x) < 0.1f ? 1f : Mathf.Sign(to.x);
         bool saveDustTriggered = false;
+        bool goalLandingGlowTriggered = false;
 
         while (elapsed < duration)
         {
@@ -1807,6 +1852,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 position = Vector3.Lerp(from, to, shotT);
                 position.x += Mathf.Sin(t * Mathf.PI) * side * 0.32f;
                 position.y += Mathf.Sin(t * Mathf.PI) * 1.36f;
+                if (!goalLandingGlowTriggered && t >= 0.82f)
+                {
+                    goalLandingGlowTriggered = true;
+                    goalLandingGlowWorld = new Vector3(position.x, position.y, 4.78f);
+                    goalLandingGlowStartedAt = Time.time;
+                    goalLandingGlowUntil = Time.time + 0.72f;
+                }
             }
 
             ball.position = position;
