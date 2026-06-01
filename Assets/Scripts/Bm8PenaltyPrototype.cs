@@ -344,6 +344,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         DrawArcadeHud();
+        DrawGoalFramePulse();
         DrawIdleGoalGridGlow();
         DrawShootingActionOverlay();
         DrawTargetLockOverlay();
@@ -666,6 +667,30 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             FillGuiRect(new Rect(x - 1f, goalRect.y, 2f, goalRect.height), line);
             FillGuiRect(new Rect(goalRect.x, y - 1f, goalRect.width, 2f), line);
         }
+    }
+
+    private void DrawGoalFramePulse()
+    {
+        if (!TryGetGoalGuiRect(out Rect goalRect))
+        {
+            return;
+        }
+
+        float active = shooting ? 1f : 0.35f;
+        if (!string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil)
+        {
+            active = 1f;
+        }
+
+        float pulse = Mathf.Sin(Time.time * (shooting ? 10f : 4f)) * 0.5f + 0.5f;
+        float thickness = Mathf.Lerp(3f, 7f, pulse) * active;
+        float alpha = Mathf.Lerp(0.16f, 0.54f, pulse) * active;
+        Color color = new Color(1f, 0.92f, 0.18f, alpha);
+        Rect outer = new Rect(goalRect.x - 5f, goalRect.y - 5f, goalRect.width + 10f, goalRect.height + 10f);
+        FillGuiRect(new Rect(outer.x, outer.y, outer.width, thickness), color);
+        FillGuiRect(new Rect(outer.x, outer.yMax - thickness, outer.width, thickness), color);
+        FillGuiRect(new Rect(outer.x, outer.y, thickness, outer.height), color);
+        FillGuiRect(new Rect(outer.xMax - thickness, outer.y, thickness, outer.height), color);
     }
 
     private void DrawTargetLockOverlay()
