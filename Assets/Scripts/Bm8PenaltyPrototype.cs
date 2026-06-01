@@ -350,6 +350,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         DrawReadyBallAura();
         DrawShootingActionOverlay();
         DrawTargetLockOverlay();
+        DrawTargetConfirmRipple();
         DrawShotSpeedLines();
         DrawSaveDropDust();
         DrawSaveContactSpark();
@@ -770,6 +771,36 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         FillGuiRect(new Rect(glow.x, glow.yMax - 4f, glow.width, 4f), border);
         FillGuiRect(new Rect(glow.x, glow.y, 4f, glow.height), border);
         FillGuiRect(new Rect(glow.xMax - 4f, glow.y, 4f, glow.height), border);
+    }
+
+    private void DrawTargetConfirmRipple()
+    {
+        if (Time.time >= targetLockUntil || !TryGetGoalGuiRect(out Rect goalRect))
+        {
+            return;
+        }
+
+        float age = Mathf.Max(0f, Time.time - targetLockStartedAt);
+        if (age > 0.52f)
+        {
+            return;
+        }
+
+        float cellWidth = goalRect.width / 3f;
+        float cellHeight = goalRect.height / 3f;
+        Rect cell = new Rect(goalRect.x + aimCol * cellWidth, goalRect.y + aimRow * cellHeight, cellWidth, cellHeight);
+        for (int i = 0; i < 2; i++)
+        {
+            float t = Mathf.Clamp01((age - i * 0.08f) / 0.44f);
+            float grow = Mathf.Lerp(0f, 28f, t);
+            float alpha = Mathf.Lerp(0.42f, 0f, t);
+            Rect rect = new Rect(cell.x - grow, cell.y - grow, cell.width + grow * 2f, cell.height + grow * 2f);
+            Color color = new Color(1f, 0.94f, 0.18f, alpha);
+            FillGuiRect(new Rect(rect.x, rect.y, rect.width, 3f), color);
+            FillGuiRect(new Rect(rect.x, rect.yMax - 3f, rect.width, 3f), color);
+            FillGuiRect(new Rect(rect.x, rect.y, 3f, rect.height), color);
+            FillGuiRect(new Rect(rect.xMax - 3f, rect.y, 3f, rect.height), color);
+        }
     }
 
     private void DrawKickFlash()
