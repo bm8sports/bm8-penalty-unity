@@ -2311,8 +2311,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         Vector3 centerLocal = keeper.InverseTransformPoint(bounds.center);
         float centerDriftX = centerLocal.x - importedKeeperReadyBoundsCenterLocal.x;
         float centerDriftY = centerLocal.y - importedKeeperReadyBoundsCenterLocal.y;
-        float maxCenterDriftX = shooting && keeperRow == 0 ? 1.18f : 2.2f;
-        float maxCenterDriftY = shooting && keeperRow == 0 ? 1.15f : 1.35f;
+        float maxCenterDriftX = shooting && keeperRow == 0 ? 0.72f : 2.2f;
+        float maxCenterDriftY = shooting && keeperRow == 0 ? 0.62f : 1.35f;
         if (Mathf.Abs(centerDriftX) > maxCenterDriftX)
         {
             correction.x -= Mathf.Sign(centerDriftX) * (Mathf.Abs(centerDriftX) - maxCenterDriftX);
