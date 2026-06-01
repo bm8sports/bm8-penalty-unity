@@ -98,6 +98,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private int goals;
     private int saves;
     private int shotCount;
+    private int goalStreak;
+    private int saveStreak;
     private float aimX;
     private float aimY = 2.1f;
     private float saveReboundSide = 1f;
@@ -123,6 +125,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private bool importedKeeperBoundsCaptured;
     private string resultBanner = "";
     private string resultMultiplierText = "";
+    private string resultStreakText = "";
     private float resultBannerUntil;
     private float resultBannerStartedAt;
     private Color resultBannerColor = Color.white;
@@ -471,6 +474,18 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 };
                 GUI.Label(new Rect(0f, height * 0.48f + pop * 8f, width, height * 0.08f), resultMultiplierText, multiplierStyle);
             }
+
+            if (!string.IsNullOrEmpty(resultStreakText))
+            {
+                GUIStyle streakStyle = new GUIStyle(GUI.skin.label)
+                {
+                    alignment = TextAnchor.MiddleCenter,
+                    fontSize = Mathf.RoundToInt(Mathf.Clamp(height * 0.03f, 14f, 24f)),
+                    fontStyle = FontStyle.Bold,
+                    normal = { textColor = new Color(1f, 1f, 1f, Mathf.Clamp01(life + 0.05f)) }
+                };
+                GUI.Label(new Rect(0f, height * 0.545f + pop * 5f, width, height * 0.06f), resultStreakText, streakStyle);
+            }
         }
     }
 
@@ -767,10 +782,16 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         resultBanner = message;
         resultMultiplierText = TargetMultiplierLabel() + (message == "GOAL" ? " HIT" : " SAVED");
+        resultStreakText = message == "GOAL" ? StreakLabel(goalStreak, "GOAL STREAK") : StreakLabel(saveStreak, "SAVE STREAK");
         resultBannerColor = color;
         resultBannerStartedAt = Time.time;
         resultBannerUntil = Time.time + 1.7f;
         ShowResultGoalFlash(color);
+    }
+
+    private static string StreakLabel(int streak, string label)
+    {
+        return streak >= 2 ? streak + "x " + label : "";
     }
 
     private void RecordShotHistory(bool goal)
@@ -1067,12 +1088,16 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (save)
         {
             saves++;
+            saveStreak++;
+            goalStreak = 0;
             RecordShotHistory(false);
             ShowResultBanner("SAVED", new Color(0.1f, 0.55f, 1f));
         }
         else
         {
             goals++;
+            goalStreak++;
+            saveStreak = 0;
             RecordShotHistory(true);
             ShowResultBanner("GOAL", new Color(1f, 0.2f, 0.12f));
         }
