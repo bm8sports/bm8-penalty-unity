@@ -346,6 +346,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         DrawArcadeHud();
         DrawGoalFramePulse();
         DrawIdleGoalGridGlow();
+        DrawReadyBallAura();
         DrawShootingActionOverlay();
         DrawTargetLockOverlay();
         DrawShotSpeedLines();
@@ -691,6 +692,31 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         FillGuiRect(new Rect(outer.x, outer.yMax - thickness, outer.width, thickness), color);
         FillGuiRect(new Rect(outer.x, outer.y, thickness, outer.height), color);
         FillGuiRect(new Rect(outer.xMax - thickness, outer.y, thickness, outer.height), color);
+    }
+
+    private void DrawReadyBallAura()
+    {
+        if (shooting || Camera.main == null || !string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil)
+        {
+            return;
+        }
+
+        Vector3 screen = Camera.main.WorldToScreenPoint(ball.position);
+        if (screen.z <= 0f)
+        {
+            return;
+        }
+
+        float pulse = Mathf.Sin(Time.time * 4.6f) * 0.5f + 0.5f;
+        Vector2 center = new Vector2(screen.x, Screen.height - screen.y);
+        float size = Mathf.Lerp(44f, 78f, pulse);
+        Color ring = new Color(1f, 0.88f, 0.18f, Mathf.Lerp(0.14f, 0.34f, pulse));
+        Color glow = new Color(1f, 0.2f, 0.1f, Mathf.Lerp(0.04f, 0.14f, pulse));
+        FillGuiRect(new Rect(center.x - size * 0.5f, center.y - size * 0.11f, size, size * 0.22f), glow);
+        FillGuiRect(new Rect(center.x - size * 0.5f, center.y - size * 0.5f, size, 3f), ring);
+        FillGuiRect(new Rect(center.x - size * 0.5f, center.y + size * 0.5f - 3f, size, 3f), ring);
+        FillGuiRect(new Rect(center.x - size * 0.5f, center.y - size * 0.5f, 3f, size), ring);
+        FillGuiRect(new Rect(center.x + size * 0.5f - 3f, center.y - size * 0.5f, 3f, size), ring);
     }
 
     private void DrawTargetLockOverlay()
