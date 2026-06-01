@@ -113,6 +113,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private bool keeperTestMode;
     private int keeperTestShotIndex;
     private int keeperTestShotTotal;
+    private float keeperActionStartedAt;
+    private float keeperActionDuration = 1f;
     private float shootingStartedRealtime;
     private double shootingStartedWallClock;
     private Vector3 importedKeeperAnchorLocalPosition = new Vector3(0f, 0f, -0.02f);
@@ -306,10 +308,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0f);
-        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 0f);
-        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0f);
-        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0f);
+        ApplyKeeperActionHandIk();
     }
 
     private void ApplyKeeperHandIk(Vector3 leftTarget, Vector3 rightTarget, float weight)
@@ -324,6 +323,46 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         keeperAnimator.SetIKRotationWeight(AvatarIKGoal.RightHand, clamped * 0.55f);
         keeperAnimator.SetIKPosition(AvatarIKGoal.RightHand, rightTarget);
         keeperAnimator.SetIKRotation(AvatarIKGoal.RightHand, KeeperHandLookRotation(rightTarget));
+    }
+
+    private void ApplyKeeperActionHandIk()
+    {
+        if (keeperAnimator == null || !keeperAnimator.isHuman)
+        {
+            return;
+        }
+
+        float actionT = Mathf.Clamp01((Time.time - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
+        float contactT = AaContactTime();
+        float reachIn = Smooth(Mathf.Clamp01(Mathf.InverseLerp(contactT - 0.2f, contactT + 0.03f, actionT)));
+        float reachOut = Smooth(Mathf.Clamp01(Mathf.InverseLerp(contactT + AaPunchWindow() + 0.12f, contactT + AaPunchWindow() + 0.42f, actionT)));
+        float weight = reachIn * (1f - reachOut);
+        if (weight <= 0.001f)
+        {
+            keeperAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, 0f);
+            keeperAnimator.SetIKRotationWeight(AvatarIKGoal.LeftHand, 0f);
+            keeperAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, 0f);
+            keeperAnimator.SetIKRotationWeight(AvatarIKGoal.RightHand, 0f);
+            return;
+        }
+
+        float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+        Vector3 contact = AaKeeperContactWorld() + new Vector3(0f, keeperRow == 0 ? 0.12f : keeperRow == 2 ? -0.04f : 0.02f, -0.04f);
+        float spread = keeperRow == 0 ? 0.13f : keeperRow == 2 ? 0.16f : 0.18f;
+        Vector3 leftTarget = contact + new Vector3(-spread, keeperRow == 0 ? -0.02f : 0f, -0.02f);
+        Vector3 rightTarget = contact + new Vector3(spread, keeperRow == 0 ? -0.02f : 0f, -0.02f);
+        if (side < 0f)
+        {
+            leftTarget = contact + new Vector3(-0.04f, 0.02f, -0.02f);
+            rightTarget = contact + new Vector3(0.24f, -0.08f, 0.02f);
+        }
+        else if (side > 0f)
+        {
+            leftTarget = contact + new Vector3(-0.24f, -0.08f, 0.02f);
+            rightTarget = contact + new Vector3(0.04f, 0.02f, -0.02f);
+        }
+
+        ApplyKeeperHandIk(leftTarget, rightTarget, Mathf.Lerp(0.58f, keeperRow == 0 ? 0.92f : 0.78f, weight));
     }
 
     private Quaternion KeeperHandLookRotation(Vector3 target)
@@ -1243,6 +1282,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         SetStatus("Keeper " + keeperAction + " " + GridName(keeperCol, keeperRow));
         PlayKeeperDiveAnimation(save);
         float keeperDuration = save ? keeperRow == 0 ? 1.38f : 1.08f : 0.92f;
+        keeperActionStartedAt = Time.time;
+        keeperActionDuration = Mathf.Max(0.1f, keeperDuration);
         StartCoroutine(DiveKeeper(keeperTarget, keeperDuration, save));
         saveReboundSide = keeperCol == 1 ? (aimCol == 0 ? -1f : aimCol == 2 ? 1f : UnityEngine.Random.value < 0.5f ? -1f : 1f) : Mathf.Sign(keeperCol - 1f);
         yield return FlyBall(ballStart, target, save, save ? keeperRow == 0 ? 1.22f : 1.08f : 0.9f);
