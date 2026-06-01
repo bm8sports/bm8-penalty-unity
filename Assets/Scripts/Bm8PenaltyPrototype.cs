@@ -346,6 +346,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         DrawArcadeHud();
         DrawGoalFramePulse();
         DrawIdleGoalGridGlow();
+        DrawReadyAimGuide();
         DrawReadyBallAura();
         DrawShootingActionOverlay();
         DrawTargetLockOverlay();
@@ -717,6 +718,34 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         FillGuiRect(new Rect(center.x - size * 0.5f, center.y + size * 0.5f - 3f, size, 3f), ring);
         FillGuiRect(new Rect(center.x - size * 0.5f, center.y - size * 0.5f, 3f, size), ring);
         FillGuiRect(new Rect(center.x + size * 0.5f - 3f, center.y - size * 0.5f, 3f, size), ring);
+    }
+
+    private void DrawReadyAimGuide()
+    {
+        if (shooting || Camera.main == null || !string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil || !TryGetGoalGuiRect(out Rect goalRect))
+        {
+            return;
+        }
+
+        Vector3 ballScreen = Camera.main.WorldToScreenPoint(ball.position + new Vector3(0f, 0.12f, 0f));
+        if (ballScreen.z <= 0f)
+        {
+            return;
+        }
+
+        float cellWidth = goalRect.width / 3f;
+        float cellHeight = goalRect.height / 3f;
+        Vector2 from = new Vector2(ballScreen.x, Screen.height - ballScreen.y);
+        Vector2 to = new Vector2(goalRect.x + (aimCol + 0.5f) * cellWidth, goalRect.y + (aimRow + 0.5f) * cellHeight);
+        float pulse = Mathf.Sin(Time.time * 5.5f) * 0.5f + 0.5f;
+        Color color = new Color(1f, 0.86f, 0.16f, Mathf.Lerp(0.1f, 0.28f, pulse));
+        for (int i = 1; i <= 9; i++)
+        {
+            float t = i / 10f;
+            Vector2 p = Vector2.Lerp(from, to, t);
+            float size = Mathf.Lerp(5f, 9f, Mathf.Repeat(t + Time.time * 0.8f, 1f));
+            FillGuiRect(new Rect(p.x - size * 0.5f, p.y - size * 0.5f, size, size), color);
+        }
     }
 
     private void DrawTargetLockOverlay()
