@@ -3745,6 +3745,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float bandPulse = Mathf.Sin(time * 3.2f) * 0.5f + 0.5f;
             SetExistingMaterialColor(band, Color.Lerp(new Color(0.26f, 0.19f, 0.055f), new Color(0.86f, 0.72f, 0.18f), bandPulse));
         }
+
+        float resultLife = Mathf.Clamp01((resultBannerUntil - Time.time) / 1.7f);
+        float resultPulse = Mathf.Sin(Time.time * 18f) * 0.5f + 0.5f;
+        Color panelColor = Color.Lerp(new Color(0.52f, 0.055f, 0.045f), resultBannerColor, resultLife * Mathf.Lerp(0.25f, 0.7f, resultPulse));
+        Color adColor = Color.Lerp(new Color(0.03f, 0.03f, 0.035f), resultBannerColor, resultLife * Mathf.Lerp(0.12f, 0.42f, resultPulse));
+        SetExistingMaterialColor(backdrop.Find("Red Left Panel"), panelColor);
+        SetExistingMaterialColor(backdrop.Find("Red Right Panel"), panelColor);
+        SetExistingMaterialColor(backdrop.Find("Left Ad Board"), adColor);
+        SetExistingMaterialColor(backdrop.Find("Right Ad Board"), adColor);
     }
 
     private static void SetExistingMaterialColor(Transform part, Color color)
