@@ -446,7 +446,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         FillGuiRect(bottom, new Color(0.12f, 0.045f, 0.025f, 0.92f));
         GUI.Label(new Rect(bottom.x + 18f, bottom.y + 6f, 120f, 20f), "BET", small);
         GUI.Label(new Rect(bottom.x + 18f, bottom.y + bottom.height * 0.42f, 120f, 24f), "100.00", panelText);
-        GUI.Label(new Rect(bottom.x + bottom.width * 0.38f, bottom.y + bottom.height * 0.3f, bottom.width * 0.24f, 28f), shooting ? "ACTION" : "TAP GOAL", panelText);
+        bool showingResult = !string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil;
+        string centerAction = showingResult ? resultBanner == "GOAL" ? "COLLECT" : "TRY AGAIN" : shooting ? "ACTION" : "TAP GOAL";
+        Rect centerActionRect = new Rect(bottom.x + bottom.width * 0.38f, bottom.y + bottom.height * 0.3f, bottom.width * 0.24f, 28f);
+        if (showingResult)
+        {
+            float actionPulse = Mathf.Sin(Time.time * 12f) * 0.5f + 0.5f;
+            FillGuiRect(new Rect(centerActionRect.x - 10f, centerActionRect.y - 3f, centerActionRect.width + 20f, centerActionRect.height + 6f), new Color(1f, 0.88f, 0.18f, Mathf.Lerp(0.14f, 0.34f, actionPulse)));
+        }
+        GUI.Label(centerActionRect, centerAction, panelText);
         GUI.Label(new Rect(bottom.x + bottom.width - 160f, bottom.y + 6f, 138f, 20f), "DEMO BALANCE", small);
         GUI.Label(new Rect(bottom.x + bottom.width - 160f, bottom.y + bottom.height * 0.42f, 138f, 24f), "1,000.00", panelText);
 
