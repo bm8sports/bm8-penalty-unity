@@ -1280,12 +1280,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         bool save = forceKeeperTestShot ? forcedKeeperSave : ShouldKeeperSave(power);
         string keeperAction = KeeperActionName(keeperCol, keeperRow);
         SetStatus("Keeper " + keeperAction + " " + GridName(keeperCol, keeperRow));
+        saveReboundSide = keeperCol == 1 ? (aimCol == 0 ? -1f : aimCol == 2 ? 1f : UnityEngine.Random.value < 0.5f ? -1f : 1f) : Mathf.Sign(keeperCol - 1f);
         PlayKeeperDiveAnimation(save);
         float keeperDuration = save ? keeperRow == 0 ? 1.38f : 1.08f : 0.92f;
         keeperActionStartedAt = Time.time;
         keeperActionDuration = Mathf.Max(0.1f, keeperDuration);
         StartCoroutine(DiveKeeper(keeperTarget, keeperDuration, save));
-        saveReboundSide = keeperCol == 1 ? (aimCol == 0 ? -1f : aimCol == 2 ? 1f : UnityEngine.Random.value < 0.5f ? -1f : 1f) : Mathf.Sign(keeperCol - 1f);
         yield return FlyBall(ballStart, target, save, save ? keeperRow == 0 ? 1.22f : 1.08f : 0.9f);
 
         shotCount++;
@@ -1846,7 +1846,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 saveContactSparkWorld = contact;
                 saveContactSparkStartedAt = Time.time;
                 saveContactSparkUntil = Time.time + 0.34f;
-                yield return null;
             }
             lastT = t;
             Vector3 position;
@@ -4223,7 +4222,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         float xScale = keeperCol == 1 ? 0.12f : keeperRow == 0 ? 0.68f : keeperRow == 2 ? 0.74f : 0.82f;
         float x = GridX(keeperCol) * xScale;
-        float y = GridY(keeperRow) + (keeperRow == 0 ? 0.42f : keeperRow == 1 ? 0.06f : -0.06f);
+        float centerLift = keeperCol == 1 ? keeperRow == 1 ? 0.22f : keeperRow == 2 ? 0.1f : 0f : 0f;
+        float y = GridY(keeperRow) + (keeperRow == 0 ? 0.42f : keeperRow == 1 ? 0.06f : -0.06f) + centerLift;
         float z = keeperStart.z - (keeperRow == 2 ? 0.72f : 0.86f);
         return new Vector3(x, y, z);
     }
