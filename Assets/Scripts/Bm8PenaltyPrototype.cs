@@ -1840,11 +1840,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float contactTime = UseAaAnimatedKeeper ? AaContactTime() : 0.32f;
         float loadTime = Mathf.Clamp01(contactTime + (UseAaAnimatedKeeper ? 0.035f : 0.06f));
         float punchTime = Mathf.Clamp01(loadTime + (UseAaAnimatedKeeper ? AaPunchWindow() * 0.86f : 0.24f));
+        bool catchAaSave = saved && UseAaAnimatedKeeper && AaUsesCatchSave();
         if (UseAaAnimatedKeeper && keeperRow == 0)
         {
             contact += new Vector3(0f, 0.14f, -0.08f);
             loadTime = Mathf.Clamp01(contactTime + 0.08f);
             punchTime = Mathf.Clamp01(loadTime + 0.16f);
+        }
+        if (catchAaSave)
+        {
+            loadTime = Mathf.Clamp01(contactTime + (keeperRow == 0 ? 0.1f : 0.075f));
+            punchTime = Mathf.Clamp01(loadTime + (keeperRow == 0 ? 0.2f : 0.24f));
         }
         Vector3 palmLoad = contact + (standingBlockSave ? new Vector3(0f, -0.05f, -0.02f) : AaPalmLoadOffset());
         bool centerAaSave = UseAaAnimatedKeeper && keeperCol == 1;
@@ -1854,15 +1860,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 Mathf.Clamp(contact.y + UnityEngine.Random.Range(0.74f, 1.08f), 1.55f, 3.35f),
                 UnityEngine.Random.Range(-3.05f, -2.45f))
             : UseAaAnimatedKeeper
-            ? AaDeflectWorld(contact, reboundSide)
+            ? catchAaSave ? AaCatchSettleWorld(contact, reboundSide) : AaDeflectWorld(contact, reboundSide)
             : new Vector3(
                 Mathf.Clamp(contact.x + reboundSide * UnityEngine.Random.Range(2.35f, 3.35f), -3.7f, 3.7f),
                 Mathf.Clamp(contact.y + UnityEngine.Random.Range(0.62f, 1.3f), 1.05f, 3.35f),
                 UnityEngine.Random.Range(-3.45f, -2.35f));
-        Vector3 drop = new Vector3(
-            Mathf.Clamp(deflect.x + (centerAaSave ? reboundSide * UnityEngine.Random.Range(0.08f, 0.22f) : reboundSide * UnityEngine.Random.Range(keeperRow == 0 ? 0.7f : 0.38f, keeperRow == 0 ? 1.25f : 0.95f)), -3.8f, 3.8f),
-            keeperRow == 0 ? 0.24f : 0.28f,
-            centerAaSave ? UnityEngine.Random.Range(-2.55f, -2.18f) : UnityEngine.Random.Range(keeperRow == 0 ? -3.65f : -3.25f, keeperRow == 0 ? -2.85f : -2.45f));
+        Vector3 drop = catchAaSave
+            ? AaCatchDropWorld(deflect, reboundSide)
+            : new Vector3(
+                Mathf.Clamp(deflect.x + (centerAaSave ? reboundSide * UnityEngine.Random.Range(0.08f, 0.22f) : reboundSide * UnityEngine.Random.Range(keeperRow == 0 ? 0.7f : 0.38f, keeperRow == 0 ? 1.25f : 0.95f)), -3.8f, 3.8f),
+                keeperRow == 0 ? 0.24f : 0.28f,
+                centerAaSave ? UnityEngine.Random.Range(-2.55f, -2.18f) : UnityEngine.Random.Range(keeperRow == 0 ? -3.65f : -3.25f, keeperRow == 0 ? -2.85f : -2.45f));
         float lastT = 0f;
         shotSpeedLineStartedAt = Time.time;
         shotSpeedLineUntil = Time.time + 0.56f;
@@ -2766,7 +2774,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 return "AA_Soccer_Goal_HitBall_TR_" + suffix;
             }
 
-            return "AA_Soccer_Goal_HitBall_UP_" + suffix;
+            return save ? "AA_Soccer_Goal_CatchBall_UP_Succ" : "AA_Soccer_Goal_HitBall_UP_Fail";
         }
 
         if (keeperRow == 2)
@@ -2786,15 +2794,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         if (keeperCol == 0)
         {
-            return "AA_Soccer_Goal_HitBall_L_" + suffix;
+            return save ? "AA_Soccer_Goal_CatchBall_L_Succ" : "AA_Soccer_Goal_HitBall_L_Fail";
         }
 
         if (keeperCol == 2)
         {
-            return "AA_Soccer_Goal_HitBall_R_" + suffix;
+            return save ? "AA_Soccer_Goal_CatchBall_R_Succ" : "AA_Soccer_Goal_HitBall_R_Fail";
         }
 
-        return "AA_Soccer_Goal_HitBall_F_" + suffix;
+        return save ? "AA_Soccer_Goal_CatchBall_F_Succ" : "AA_Soccer_Goal_HitBall_F_Fail";
     }
 
     private static RuntimeAnimatorController LoadAaKeeperController(string controllerName)
@@ -4329,6 +4337,32 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             Mathf.Clamp(contact.x + reboundSide * sidePush, -3.75f, 3.75f),
             Mathf.Clamp(contact.y + upPush, 0.72f, 3.55f),
             zPush);
+    }
+
+    private bool AaUsesCatchSave()
+    {
+        return keeperRow != 0 || keeperCol == 1;
+    }
+
+    private Vector3 AaCatchSettleWorld(Vector3 contact, float reboundSide)
+    {
+        float side = keeperCol == 1 ? reboundSide : Mathf.Sign(keeperCol - 1f);
+        float sideNudge = keeperCol == 1 ? side * UnityEngine.Random.Range(0.04f, 0.12f) : side * UnityEngine.Random.Range(0.1f, 0.24f);
+        float yDrop = keeperRow == 0 ? UnityEngine.Random.Range(-0.04f, 0.04f) : keeperRow == 2 ? UnityEngine.Random.Range(-0.14f, -0.06f) : UnityEngine.Random.Range(-0.08f, 0.02f);
+        float zPull = keeperRow == 0 ? UnityEngine.Random.Range(-0.22f, -0.12f) : UnityEngine.Random.Range(-0.34f, -0.18f);
+        return new Vector3(
+            Mathf.Clamp(contact.x + sideNudge, -1.55f, 1.55f),
+            Mathf.Clamp(contact.y + yDrop, 0.72f, 3.55f),
+            contact.z + zPull);
+    }
+
+    private Vector3 AaCatchDropWorld(Vector3 caught, float reboundSide)
+    {
+        float side = keeperCol == 1 ? reboundSide : Mathf.Sign(keeperCol - 1f);
+        return new Vector3(
+            Mathf.Clamp(caught.x + side * UnityEngine.Random.Range(0.04f, 0.16f), -1.8f, 1.8f),
+            keeperRow == 0 ? 0.3f : 0.24f,
+            caught.z + UnityEngine.Random.Range(-0.46f, -0.26f));
     }
 
     private float AaShotArcHeight(bool saved)
