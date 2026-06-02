@@ -146,6 +146,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private float saveContactSparkStartedAt;
     private float saveContactSparkUntil;
     private Vector3 saveContactSparkWorld;
+    private float centerCatchHaloStartedAt;
+    private float centerCatchHaloUntil;
+    private Vector3 centerCatchHaloWorld;
     private float goalLandingGlowStartedAt;
     private float goalLandingGlowUntil;
     private Vector3 goalLandingGlowWorld;
@@ -396,6 +399,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         DrawShotSpeedLines();
         DrawSaveDropDust();
         DrawSaveContactSpark();
+        DrawCenterCatchHalo();
         DrawGoalLandingGlow();
         DrawKickFlash();
         DrawRuntimeTestButton();
@@ -697,6 +701,34 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         FillGuiRect(new Rect(center.x - thickness * 0.5f, center.y - length * 0.5f, thickness, length), white);
         FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f - length * 0.22f, length * 0.72f, thickness), gold);
         FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f + length * 0.22f, length * 0.72f, thickness), gold);
+    }
+
+    private void DrawCenterCatchHalo()
+    {
+        if (Time.time >= centerCatchHaloUntil || Camera.main == null)
+        {
+            return;
+        }
+
+        Vector3 screen = Camera.main.WorldToScreenPoint(centerCatchHaloWorld);
+        if (screen.z <= 0f)
+        {
+            return;
+        }
+
+        float age = Mathf.Max(0f, Time.time - centerCatchHaloStartedAt);
+        float duration = Mathf.Max(0.1f, centerCatchHaloUntil - centerCatchHaloStartedAt);
+        float t = Mathf.Clamp01(age / duration);
+        float pulse = Mathf.Sin(Mathf.Clamp01(age / 0.24f) * Mathf.PI);
+        Vector2 center = new Vector2(screen.x, Screen.height - screen.y);
+        float size = Mathf.Lerp(34f, 78f, t);
+        Color blue = new Color(0.18f, 0.72f, 1f, Mathf.Lerp(0.34f, 0.03f, t));
+        Color gold = new Color(1f, 0.9f, 0.12f, Mathf.Lerp(0.48f, 0.04f, t));
+        FillGuiRect(new Rect(center.x - size * 0.5f, center.y - 3f, size, 6f), blue);
+        FillGuiRect(new Rect(center.x - 3f, center.y - size * 0.5f, 6f, size), blue);
+        FillGuiRect(new Rect(center.x - size * 0.34f, center.y - size * 0.18f, size * 0.68f, 4f), gold);
+        FillGuiRect(new Rect(center.x - size * 0.34f, center.y + size * 0.18f, size * 0.68f, 4f), gold);
+        FillGuiRect(new Rect(center.x - 9f * pulse, center.y - 9f * pulse, 18f * pulse, 18f * pulse), new Color(1f, 1f, 1f, 0.22f * (1f - t)));
     }
 
     private void DrawGoalLandingGlow()
@@ -1315,7 +1347,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             keeper.rotation = Quaternion.identity;
             ResetPose();
         }
-        yield return new WaitForSeconds(save ? keeperRow == 0 ? 1.65f : 1.35f : 0.9f);
+        yield return new WaitForSecondsRealtime(save ? keeperRow == 0 ? 1.65f : 1.35f : 0.9f);
         yield return ReturnAllToReady(save ? 0.42f : 0.28f);
         SetStatus("Tap goal");
         shooting = false;
@@ -1847,6 +1879,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 saveContactSparkWorld = contact;
                 saveContactSparkStartedAt = Time.time;
                 saveContactSparkUntil = Time.time + 0.34f;
+                if (centerAaSave)
+                {
+                    centerCatchHaloWorld = contact + new Vector3(0f, 0.02f, -0.03f);
+                    centerCatchHaloStartedAt = Time.time;
+                    centerCatchHaloUntil = Time.time + 0.46f;
+                }
             }
             lastT = t;
             Vector3 position;
