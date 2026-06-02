@@ -128,6 +128,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private string resultBanner = "";
     private string resultMultiplierText = "";
     private string resultStreakText = "";
+    private string activeKeeperControllerName = "";
     private float resultBannerUntil;
     private float resultBannerStartedAt;
     private Color resultBannerColor = Color.white;
@@ -504,6 +505,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         GUI.Label(centerActionRect, centerAction, panelText);
         GUI.Label(new Rect(bottom.x + bottom.width - 160f, bottom.y + 6f, 138f, 20f), "DEMO BALANCE", small);
         GUI.Label(new Rect(bottom.x + bottom.width - 160f, bottom.y + bottom.height * 0.42f, 138f, 24f), "1,000.00", panelText);
+        if (showDebugControls && !string.IsNullOrEmpty(activeKeeperControllerName))
+        {
+            GUIStyle debugStyle = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = Mathf.RoundToInt(Mathf.Clamp(height * 0.022f, 10f, 13f)),
+                fontStyle = FontStyle.Bold,
+                normal = { textColor = new Color(0.48f, 0.86f, 1f, 0.92f) }
+            };
+            GUI.Label(new Rect(bottom.x, bottom.y - 22f, bottom.width, 18f), activeKeeperControllerName, debugStyle);
+        }
 
         if (!string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil)
         {
@@ -2709,20 +2721,25 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        RuntimeAnimatorController controller = UseAaAnimatedKeeper ? LoadAaKeeperController(AaKeeperControllerName(save)) : null;
+        string aaControllerName = UseAaAnimatedKeeper ? AaKeeperControllerName(save) : "";
+        RuntimeAnimatorController controller = UseAaAnimatedKeeper ? LoadAaKeeperController(aaControllerName) : null;
+        activeKeeperControllerName = controller != null ? aaControllerName : "";
         if (controller == null && keeperRow == 0)
         {
             if (keeperCol == 0)
             {
                 controller = save ? keeperHitTopLeftSuccessController : keeperHitTopLeftFailController;
+                activeKeeperControllerName = controller != null ? controller.name : "";
             }
             else if (keeperCol == 2)
             {
                 controller = save ? keeperHitTopRightSuccessController : keeperHitTopRightFailController;
+                activeKeeperControllerName = controller != null ? controller.name : "";
             }
             else
             {
-                controller = save ? LoadAaKeeperController("AA_Soccer_Goal_HitBall_UP_Succ") : LoadAaKeeperController("AA_Soccer_Goal_HitBall_UP_Fail");
+                activeKeeperControllerName = save ? "AA_Soccer_Goal_HitBall_UP_Succ" : "AA_Soccer_Goal_HitBall_UP_Fail";
+                controller = LoadAaKeeperController(activeKeeperControllerName);
             }
         }
         else if (controller == null && keeperRow == 2)
@@ -2730,14 +2747,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             if (keeperCol == 0)
             {
                 controller = save ? keeperCatchLeftDownSuccessController : keeperCatchLeftDownFailController;
+                activeKeeperControllerName = controller != null ? controller.name : "";
             }
             else if (keeperCol == 2)
             {
                 controller = save ? keeperCatchRightDownSuccessController : keeperCatchRightDownFailController;
+                activeKeeperControllerName = controller != null ? controller.name : "";
             }
             else
             {
                 controller = save ? keeperCatchForwardSuccessController : keeperCatchForwardFailController;
+                activeKeeperControllerName = controller != null ? controller.name : "";
             }
         }
         else if (controller == null)
@@ -2745,14 +2765,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             if (keeperCol == 0)
             {
                 controller = save ? keeperHitLeftSuccessController : keeperHitLeftFailController;
+                activeKeeperControllerName = controller != null ? controller.name : "";
             }
             else if (keeperCol == 2)
             {
                 controller = save ? keeperHitRightSuccessController : keeperHitRightFailController;
+                activeKeeperControllerName = controller != null ? controller.name : "";
             }
             else
             {
                 controller = save ? keeperCatchForwardSuccessController : keeperCatchForwardFailController;
+                activeKeeperControllerName = controller != null ? controller.name : "";
             }
         }
 
