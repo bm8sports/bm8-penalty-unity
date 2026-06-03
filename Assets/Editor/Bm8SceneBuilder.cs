@@ -8,6 +8,7 @@ public static class Bm8SceneBuilder
     private const string StylizedKeeperPath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/Goalkeeper_TPose.FBX";
     private const string RobotKeeperPath = "Assets/animo/AA_Soccer_Goalkeeper/Prefabs/Robot.prefab";
     private const string AaControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
+    private const string RuntimeTestRequestKey = "BM8.KeeperRuntimeTest.Requested";
 
     private static readonly string[] RequiredKeeperControllers =
     {
@@ -157,6 +158,181 @@ public static class Bm8SceneBuilder
         EditorSceneManager.SaveOpenScenes();
 
         Debug.Log("BM8 goalkeeper animation references repaired. Run BM8/Validate Goalkeeper Animation Setup to verify.");
+    }
+
+    [MenuItem("BM8/Run Keeper Runtime Test")]
+    public static void RunKeeperRuntimeTest()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+        {
+            Debug.LogError("Stop Play Mode before starting the BM8 keeper runtime test.");
+            return;
+        }
+
+        OpenPrototypeScene();
+        RepairGoalkeeperAnimationReferences();
+        EditorPrefs.SetBool(RuntimeTestRequestKey, true);
+        EditorApplication.isPlaying = true;
+        Debug.Log("BM8 keeper runtime test requested. Unity will run TEST 9 and TEST TOP automatically.");
+    }
+
+    [InitializeOnLoad]
+    private static class KeeperRuntimeTestRunner
+    {
+        private const double SceneReadyTimeoutSeconds = 15d;
+        private const double FullGridTimeoutSeconds = 90d;
+        private const double TopGridTimeoutSeconds = 45d;
+
+        private enum RunnerState
+        {
+            Idle,
+            WaitForScene,
+            WaitForFullGrid,
+            WaitForTopGrid
+        }
+
+        private static RunnerState state = RunnerState.Idle;
+        private static Bm8PenaltyPrototype prototype;
+        private static double stageStartedAt;
+
+        static KeeperRuntimeTestRunner()
+        {
+            EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+            EditorApplication.update += Update;
+        }
+
+        private static void OnPlayModeStateChanged(PlayModeStateChange change)
+        {
+            if (change == PlayModeStateChange.EnteredPlayMode && EditorPrefs.GetBool(RuntimeTestRequestKey, false))
+            {
+                state = RunnerState.WaitForScene;
+                stageStartedAt = EditorApplication.timeSinceStartup;
+                prototype = null;
+            }
+
+            if (change == PlayModeStateChange.EnteredEditMode && !EditorPrefs.GetBool(RuntimeTestRequestKey, false))
+            {
+                state = RunnerState.Idle;
+                prototype = null;
+            }
+        }
+
+        private static void Update()
+        {
+            if (!EditorApplication.isPlaying || !EditorPrefs.GetBool(RuntimeTestRequestKey, false))
+            {
+                return;
+            }
+
+            if (state == RunnerState.Idle)
+            {
+                state = RunnerState.WaitForScene;
+                stageStartedAt = EditorApplication.timeSinceStartup;
+            }
+
+            if (state == RunnerState.WaitForScene)
+            {
+                prototype = Object.FindAnyObjectByType<Bm8PenaltyPrototype>();
+                if (prototype != null)
+                {
+                    Time.timeScale = 1f;
+                    prototype.RunKeeperZoneTest();
+                    state = RunnerState.WaitForFullGrid;
+                    stageStartedAt = EditorApplication.timeSinceStartup;
+                    Debug.Log("BM8 keeper runtime test: running TEST 9.");
+                    return;
+                }
+
+                if (ElapsedSeconds() > SceneReadyTimeoutSeconds)
+                {
+                    FailRuntimeTest("BM8PenaltyPrototype was not found after entering Play Mode.");
+                }
+
+                return;
+            }
+
+            if (state == RunnerState.WaitForFullGrid)
+            {
+                if (StatusContains("Test complete"))
+                {
+                    prototype.RunTopKeeperZoneTest();
+                    state = RunnerState.WaitForTopGrid;
+                    stageStartedAt = EditorApplication.timeSinceStartup;
+                    Debug.Log("BM8 keeper runtime test: TEST 9 complete; running TEST TOP.");
+                    return;
+                }
+
+                if (StatusContains("timeout") || StatusContains("watchdog"))
+                {
+                    FailRuntimeTest("TEST 9 reported timeout/watchdog. Status: " + CurrentStatusText());
+                    return;
+                }
+
+                if (ElapsedSeconds() > FullGridTimeoutSeconds)
+                {
+                    FailRuntimeTest("TEST 9 did not complete within " + FullGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText());
+                }
+
+                return;
+            }
+
+            if (state == RunnerState.WaitForTopGrid)
+            {
+                if (StatusContains("Top test complete"))
+                {
+                    EditorPrefs.DeleteKey(RuntimeTestRequestKey);
+                    Debug.Log("BM8 keeper runtime test passed: TEST 9 and TEST TOP completed.");
+                    EditorApplication.isPlaying = false;
+                    state = RunnerState.Idle;
+                    prototype = null;
+                    return;
+                }
+
+                if (StatusContains("timeout") || StatusContains("watchdog"))
+                {
+                    FailRuntimeTest("TEST TOP reported timeout/watchdog. Status: " + CurrentStatusText());
+                    return;
+                }
+
+                if (ElapsedSeconds() > TopGridTimeoutSeconds)
+                {
+                    FailRuntimeTest("TEST TOP did not complete within " + TopGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText());
+                }
+            }
+        }
+
+        private static bool StatusContains(string value)
+        {
+            return CurrentStatusText().ToLowerInvariant().Contains(value.ToLowerInvariant());
+        }
+
+        private static string CurrentStatusText()
+        {
+            Text[] texts = Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int i = 0; i < texts.Length; i++)
+            {
+                if (texts[i].name == "Status")
+                {
+                    return texts[i].text ?? "";
+                }
+            }
+
+            return "";
+        }
+
+        private static double ElapsedSeconds()
+        {
+            return EditorApplication.timeSinceStartup - stageStartedAt;
+        }
+
+        private static void FailRuntimeTest(string message)
+        {
+            EditorPrefs.DeleteKey(RuntimeTestRequestKey);
+            Debug.LogError("BM8 keeper runtime test failed: " + message);
+            EditorApplication.isPlaying = false;
+            state = RunnerState.Idle;
+            prototype = null;
+        }
     }
 
     [MenuItem("BM8/Use Uploaded Stylized Goalkeeper")]
