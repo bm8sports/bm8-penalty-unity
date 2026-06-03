@@ -2509,25 +2509,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         const float goalMaxY = 2.92f;
         float goalMinZ = keeperStart.z - 1.22f;
         float goalMaxZ = keeperStart.z + 0.82f;
-        float allowedOvershootX = keeperRow == 0 ? 0.18f : 0.32f;
-        float allowedOvershootY = keeperRow == 0 ? 0.45f : 0.36f;
-        float allowedOvershootZ = keeperRow == 0 ? 0.22f : 0.32f;
 
         if (bounds.min.x < goalMinX)
         {
             correction.x += goalMinX - bounds.min.x;
-            if (shooting && goalMinX - bounds.min.x > allowedOvershootX)
-            {
-                NoteKeeperMotionViolation("visible min x " + bounds.min.x.ToString("0.00") + " beyond " + goalMinX.ToString("0.00"));
-            }
         }
         else if (bounds.max.x > goalMaxX)
         {
             correction.x -= bounds.max.x - goalMaxX;
-            if (shooting && bounds.max.x - goalMaxX > allowedOvershootX)
-            {
-                NoteKeeperMotionViolation("visible max x " + bounds.max.x.ToString("0.00") + " beyond " + goalMaxX.ToString("0.00"));
-            }
         }
 
         if (bounds.min.y < goalMinY)
@@ -2537,27 +2526,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         else if (bounds.max.y > goalMaxY)
         {
             correction.y -= bounds.max.y - goalMaxY;
-            if (shooting && bounds.max.y - goalMaxY > allowedOvershootY)
-            {
-                NoteKeeperMotionViolation("visible max y " + bounds.max.y.ToString("0.00") + " beyond " + goalMaxY.ToString("0.00"));
-            }
         }
 
         if (bounds.min.z < goalMinZ)
         {
             correction.z += goalMinZ - bounds.min.z;
-            if (shooting && goalMinZ - bounds.min.z > allowedOvershootZ)
-            {
-                NoteKeeperMotionViolation("visible min z " + bounds.min.z.ToString("0.00") + " beyond " + goalMinZ.ToString("0.00"));
-            }
         }
         else if (bounds.max.z > goalMaxZ)
         {
             correction.z -= bounds.max.z - goalMaxZ;
-            if (shooting && bounds.max.z - goalMaxZ > allowedOvershootZ)
-            {
-                NoteKeeperMotionViolation("visible max z " + bounds.max.z.ToString("0.00") + " beyond " + goalMaxZ.ToString("0.00"));
-            }
         }
 
         Vector3 centerLocal = keeper.InverseTransformPoint(bounds.center);
@@ -2577,6 +2554,37 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (correction.sqrMagnitude > 0.000001f)
         {
             keeperVisibleModel.position += correction;
+            TryGetVisibleBounds(keeperVisibleModel, out bounds);
+        }
+
+        if (shooting)
+        {
+            CheckClampedKeeperVisibleBounds(bounds, goalMinX, goalMaxX, goalMaxY, goalMinZ, goalMaxZ);
+        }
+    }
+
+    private void CheckClampedKeeperVisibleBounds(Bounds bounds, float goalMinX, float goalMaxX, float goalMaxY, float goalMinZ, float goalMaxZ)
+    {
+        const float residual = 0.06f;
+        if (bounds.min.x < goalMinX - residual)
+        {
+            NoteKeeperMotionViolation("visible min x " + bounds.min.x.ToString("0.00") + " beyond " + goalMinX.ToString("0.00"));
+        }
+        else if (bounds.max.x > goalMaxX + residual)
+        {
+            NoteKeeperMotionViolation("visible max x " + bounds.max.x.ToString("0.00") + " beyond " + goalMaxX.ToString("0.00"));
+        }
+        else if (bounds.max.y > goalMaxY + residual)
+        {
+            NoteKeeperMotionViolation("visible max y " + bounds.max.y.ToString("0.00") + " beyond " + goalMaxY.ToString("0.00"));
+        }
+        else if (bounds.min.z < goalMinZ - residual)
+        {
+            NoteKeeperMotionViolation("visible min z " + bounds.min.z.ToString("0.00") + " beyond " + goalMinZ.ToString("0.00"));
+        }
+        else if (bounds.max.z > goalMaxZ + residual)
+        {
+            NoteKeeperMotionViolation("visible max z " + bounds.max.z.ToString("0.00") + " beyond " + goalMaxZ.ToString("0.00"));
         }
     }
 
