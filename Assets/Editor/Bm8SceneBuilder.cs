@@ -180,6 +180,7 @@ public static class Bm8SceneBuilder
     private static class KeeperRuntimeTestRunner
     {
         private const double SceneReadyTimeoutSeconds = 15d;
+        private const double StartDelaySeconds = 0.35d;
         private const double FullGridTimeoutSeconds = 90d;
         private const double TopGridTimeoutSeconds = 45d;
 
@@ -187,6 +188,7 @@ public static class Bm8SceneBuilder
         {
             Idle,
             WaitForScene,
+            WaitForReady,
             WaitForFullGrid,
             WaitForTopGrid
         }
@@ -236,10 +238,9 @@ public static class Bm8SceneBuilder
                 if (prototype != null)
                 {
                     Time.timeScale = 1f;
-                    prototype.RunKeeperZoneTest();
-                    state = RunnerState.WaitForFullGrid;
+                    state = RunnerState.WaitForReady;
                     stageStartedAt = EditorApplication.timeSinceStartup;
-                    Debug.Log("BM8 keeper runtime test: running TEST 9.");
+                    Debug.Log("BM8 keeper runtime test: scene ready; waiting for game startup.");
                     return;
                 }
 
@@ -251,9 +252,28 @@ public static class Bm8SceneBuilder
                 return;
             }
 
+            if (state == RunnerState.WaitForReady)
+            {
+                if (ElapsedSeconds() >= StartDelaySeconds && IsReadyToStartRuntimeTest())
+                {
+                    prototype.RunKeeperZoneTest();
+                    state = RunnerState.WaitForFullGrid;
+                    stageStartedAt = EditorApplication.timeSinceStartup;
+                    Debug.Log("BM8 keeper runtime test: running TEST 9.");
+                    return;
+                }
+
+                if (ElapsedSeconds() > SceneReadyTimeoutSeconds)
+                {
+                    FailRuntimeTest("Game did not become ready for testing. Status: " + CurrentStatusText());
+                }
+
+                return;
+            }
+
             if (state == RunnerState.WaitForFullGrid)
             {
-                if (StatusContains("Test complete"))
+                if (StatusEquals("Test complete"))
                 {
                     prototype.RunTopKeeperZoneTest();
                     state = RunnerState.WaitForTopGrid;
@@ -278,7 +298,7 @@ public static class Bm8SceneBuilder
 
             if (state == RunnerState.WaitForTopGrid)
             {
-                if (StatusContains("Top test complete"))
+                if (StatusEquals("Top test complete"))
                 {
                     EditorPrefs.DeleteKey(RuntimeTestRequestKey);
                     Debug.Log("BM8 keeper runtime test passed: TEST 9 and TEST TOP completed.");
@@ -306,8 +326,26 @@ public static class Bm8SceneBuilder
             return CurrentStatusText().ToLowerInvariant().Contains(value.ToLowerInvariant());
         }
 
+        private static bool StatusEquals(string value)
+        {
+            return CurrentStatusText().Equals(value, System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsReadyToStartRuntimeTest()
+        {
+            string status = CurrentStatusText();
+            return status.Equals("Tap goal", System.StringComparison.OrdinalIgnoreCase)
+                || status.Equals("Ready", System.StringComparison.OrdinalIgnoreCase)
+                || string.IsNullOrWhiteSpace(status);
+        }
+
         private static string CurrentStatusText()
         {
+            if (prototype != null && !string.IsNullOrWhiteSpace(prototype.StatusMessage))
+            {
+                return prototype.StatusMessage;
+            }
+
             Text[] texts = Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None);
             for (int i = 0; i < texts.Length; i++)
             {

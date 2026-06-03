@@ -29,6 +29,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     [SerializeField] private Text scoreText;
     [SerializeField] private Slider powerSlider;
 
+    public string StatusMessage { get; private set; } = "Ready";
+
     [Header("Imported Goalkeeper Animation")]
     [SerializeField] private Animator keeperAnimator;
     [SerializeField] private RuntimeAnimatorController keeperIdleController;
@@ -4672,6 +4674,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void SetStatus(string message)
     {
+        StatusMessage = message;
         if (statusText != null)
         {
             statusText.text = message;
