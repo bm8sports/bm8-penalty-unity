@@ -123,6 +123,42 @@ public static class Bm8SceneBuilder
         }
     }
 
+    [MenuItem("BM8/Repair Goalkeeper Animation References")]
+    public static void RepairGoalkeeperAnimationReferences()
+    {
+        Bm8PenaltyPrototype prototype = Object.FindAnyObjectByType<Bm8PenaltyPrototype>();
+        if (prototype == null)
+        {
+            Debug.LogError("BM8PenaltyPrototype component not found. Open BM8PenaltyPrototype scene first.");
+            return;
+        }
+
+        GameObject keeper = GameObject.Find("Goalkeeper");
+        if (keeper == null)
+        {
+            Debug.LogError("Goalkeeper object not found. Open BM8PenaltyPrototype scene first.");
+            return;
+        }
+
+        Animator animator = keeper.GetComponentInChildren<Animator>(true);
+        if (animator != null)
+        {
+            animator.applyRootMotion = false;
+            animator.runtimeAnimatorController = LoadKeeperController("AA_Soccer_Goal_Idel");
+        }
+
+        SerializedObject serialized = new SerializedObject(prototype);
+        serialized.FindProperty("keeperAnimator").objectReferenceValue = animator;
+        AssignKeeperControllers(serialized);
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+
+        EditorUtility.SetDirty(prototype);
+        EditorSceneManager.MarkSceneDirty(EditorSceneManager.GetActiveScene());
+        EditorSceneManager.SaveOpenScenes();
+
+        Debug.Log("BM8 goalkeeper animation references repaired. Run BM8/Validate Goalkeeper Animation Setup to verify.");
+    }
+
     [MenuItem("BM8/Use Uploaded Stylized Goalkeeper")]
     public static void UseUploadedStylizedGoalkeeper()
     {
