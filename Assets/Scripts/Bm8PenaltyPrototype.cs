@@ -1509,7 +1509,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         string grid = GridName(col, row);
         string message = label + " controller mismatch " + grid;
-        Debug.LogError(message + ": expected " + expected + ", got " + activeKeeperControllerName);
+        Debug.LogError(message + ": expected " + expected + ", got " + (string.IsNullOrEmpty(activeKeeperControllerName) ? "<none>" : activeKeeperControllerName));
         SetStatus(message);
         return false;
     }
@@ -2844,12 +2844,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             if (col == 0)
             {
-                return "AA_Soccer_Goal_HitBall_TL_" + suffix;
+                return save ? "AA_Soccer_Goal_LHandHit_UL" : "AA_Soccer_Goal_HitBall_TL_Fail";
             }
 
             if (col == 2)
             {
-                return "AA_Soccer_Goal_HitBall_TR_" + suffix;
+                return save ? "AA_Soccer_Goal_RHandHit_UR" : "AA_Soccer_Goal_HitBall_TR_Fail";
             }
 
             return save ? "AA_Soccer_Goal_CatchBall_UP_Succ" : "AA_Soccer_Goal_HitBall_UP_Fail";
@@ -2916,7 +2916,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
         if (keeperRow == 0)
         {
-            return keeperStart + new Vector3(side * 0.38f, 0.04f, -0.08f);
+            return keeperStart + new Vector3(side * 0.16f, 0.02f, -0.04f);
         }
 
         if (keeperRow == 2)
@@ -2937,7 +2937,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
         if (keeperRow == 0)
         {
-            return Quaternion.Euler(-2f, side * 3f, -side * 3f);
+            return Quaternion.Euler(-1f, side * 2f, -side * 1.5f);
         }
 
         if (keeperRow == 2)

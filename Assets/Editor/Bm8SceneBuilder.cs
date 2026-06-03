@@ -25,6 +25,8 @@ public static class Bm8SceneBuilder
         "AA_Soccer_Goal_CatchBall_LD_Fail",
         "AA_Soccer_Goal_CatchBall_RD_Succ",
         "AA_Soccer_Goal_CatchBall_RD_Fail",
+        "AA_Soccer_Goal_LHandHit_UL",
+        "AA_Soccer_Goal_RHandHit_UR",
         "AA_Soccer_Goal_HitBall_TL_Succ",
         "AA_Soccer_Goal_HitBall_TL_Fail",
         "AA_Soccer_Goal_HitBall_TR_Succ",
