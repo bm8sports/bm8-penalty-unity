@@ -282,15 +282,15 @@ public static class Bm8SceneBuilder
                     return;
                 }
 
-                if (StatusContains("timeout") || StatusContains("watchdog"))
+                if (StatusContains("timeout") || StatusContains("watchdog") || StatusContains("mismatch"))
                 {
-                    FailRuntimeTest("TEST 9 reported timeout/watchdog. Status: " + CurrentStatusText());
+                    FailRuntimeTest("TEST 9 reported a runtime problem. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName());
                     return;
                 }
 
                 if (ElapsedSeconds() > FullGridTimeoutSeconds)
                 {
-                    FailRuntimeTest("TEST 9 did not complete within " + FullGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText());
+                    FailRuntimeTest("TEST 9 did not complete within " + FullGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName());
                 }
 
                 return;
@@ -308,15 +308,15 @@ public static class Bm8SceneBuilder
                     return;
                 }
 
-                if (StatusContains("timeout") || StatusContains("watchdog"))
+                if (StatusContains("timeout") || StatusContains("watchdog") || StatusContains("mismatch"))
                 {
-                    FailRuntimeTest("TEST TOP reported timeout/watchdog. Status: " + CurrentStatusText());
+                    FailRuntimeTest("TEST TOP reported a runtime problem. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName());
                     return;
                 }
 
                 if (ElapsedSeconds() > TopGridTimeoutSeconds)
                 {
-                    FailRuntimeTest("TEST TOP did not complete within " + TopGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText());
+                    FailRuntimeTest("TEST TOP did not complete within " + TopGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName());
                 }
             }
         }
@@ -356,6 +356,16 @@ public static class Bm8SceneBuilder
             }
 
             return "";
+        }
+
+        private static string CurrentKeeperControllerName()
+        {
+            if (prototype == null || string.IsNullOrWhiteSpace(prototype.ActiveKeeperControllerName))
+            {
+                return "<none>";
+            }
+
+            return prototype.ActiveKeeperControllerName;
         }
 
         private static double ElapsedSeconds()

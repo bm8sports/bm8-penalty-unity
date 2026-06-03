@@ -30,6 +30,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     [SerializeField] private Slider powerSlider;
 
     public string StatusMessage { get; private set; } = "Ready";
+    public string ActiveKeeperControllerName => activeKeeperControllerName;
 
     [Header("Imported Goalkeeper Animation")]
     [SerializeField] private Animator keeperAnimator;
@@ -1393,29 +1394,37 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 SetStatus("TEST " + KeeperActionName(col, row) + " " + GridName(col, row));
                 Shoot();
                 float shotWaitStarted = Time.realtimeSinceStartup;
+                bool shotTimedOut = false;
                 while (shooting)
                 {
                     if (Time.realtimeSinceStartup - shotWaitStarted > KeeperTestShotTimeoutSeconds)
                     {
                         ResetShot();
                         SetStatus("TEST timeout " + GridName(col, row));
+                        shotTimedOut = true;
                         break;
                     }
 
                     yield return null;
                 }
 
+                if (shotTimedOut)
+                {
+                    FinishKeeperTest(previousGoals, previousSaves, previousShotCount, "TEST timeout " + GridName(col, row));
+                    yield break;
+                }
+
+                if (!VerifyKeeperTestController(col, row, true, "TEST"))
+                {
+                    FinishKeeperTest(previousGoals, previousSaves, previousShotCount, StatusMessage);
+                    yield break;
+                }
+
                 yield return new WaitForSecondsRealtime(0.2f);
             }
         }
 
-        forceKeeperTestShot = false;
-        keeperTestMode = false;
-        goals = previousGoals;
-        saves = previousSaves;
-        shotCount = previousShotCount;
-        UpdateScore();
-        SetStatus("Test complete");
+        FinishKeeperTest(previousGoals, previousSaves, previousShotCount, "Test complete");
     }
 
     private IEnumerator TestTopKeeperZones()
@@ -1442,28 +1451,67 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             SetStatus("TEST TOP " + GridName(col, 0));
             Shoot();
             float shotWaitStarted = Time.realtimeSinceStartup;
+            bool shotTimedOut = false;
             while (shooting)
             {
                 if (Time.realtimeSinceStartup - shotWaitStarted > KeeperTestShotTimeoutSeconds)
                 {
                     ResetShot();
                     SetStatus("TEST TOP timeout " + GridName(col, 0));
+                    shotTimedOut = true;
                     break;
                 }
 
                 yield return null;
             }
 
+            if (shotTimedOut)
+            {
+                FinishKeeperTest(previousGoals, previousSaves, previousShotCount, "TEST TOP timeout " + GridName(col, 0));
+                yield break;
+            }
+
+            if (!VerifyKeeperTestController(col, 0, true, "TEST TOP"))
+            {
+                FinishKeeperTest(previousGoals, previousSaves, previousShotCount, StatusMessage);
+                yield break;
+            }
+
             yield return new WaitForSecondsRealtime(0.2f);
         }
 
+        FinishKeeperTest(previousGoals, previousSaves, previousShotCount, "Top test complete");
+    }
+
+    private void FinishKeeperTest(int previousGoals, int previousSaves, int previousShotCount, string status)
+    {
         forceKeeperTestShot = false;
         keeperTestMode = false;
         goals = previousGoals;
         saves = previousSaves;
         shotCount = previousShotCount;
         UpdateScore();
-        SetStatus("Top test complete");
+        SetStatus(status);
+    }
+
+    private bool VerifyKeeperTestController(int col, int row, bool save, string label)
+    {
+        if (!UseAaAnimatedKeeper)
+        {
+            return true;
+        }
+
+        string expected = ExpectedAaKeeperControllerName(col, row, save);
+        if (activeKeeperControllerName == expected)
+        {
+            return true;
+        }
+
+        string grid = GridName(col, row);
+        string message = label + " controller mismatch " + grid;
+        Debug.LogError(message + ": expected " + expected + ", got " + activeKeeperControllerName);
+        SetStatus(message);
+        return false;
     }
 
     private IEnumerator RunUp(Vector3 from, Vector3 to, float duration)
@@ -2786,15 +2834,20 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private string AaKeeperControllerName(bool save)
     {
+        return ExpectedAaKeeperControllerName(keeperCol, keeperRow, save);
+    }
+
+    private static string ExpectedAaKeeperControllerName(int col, int row, bool save)
+    {
         string suffix = save ? "Succ" : "Fail";
-        if (keeperRow == 0)
+        if (row == 0)
         {
-            if (keeperCol == 0)
+            if (col == 0)
             {
                 return "AA_Soccer_Goal_HitBall_TL_" + suffix;
             }
 
-            if (keeperCol == 2)
+            if (col == 2)
             {
                 return "AA_Soccer_Goal_HitBall_TR_" + suffix;
             }
@@ -2802,14 +2855,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return save ? "AA_Soccer_Goal_CatchBall_UP_Succ" : "AA_Soccer_Goal_HitBall_UP_Fail";
         }
 
-        if (keeperRow == 2)
+        if (row == 2)
         {
-            if (keeperCol == 0)
+            if (col == 0)
             {
                 return "AA_Soccer_Goal_CatchBall_LD_" + suffix;
             }
 
-            if (keeperCol == 2)
+            if (col == 2)
             {
                 return "AA_Soccer_Goal_CatchBall_RD_" + suffix;
             }
@@ -2817,12 +2870,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return "AA_Soccer_Goal_CatchBall_F_" + suffix;
         }
 
-        if (keeperCol == 0)
+        if (col == 0)
         {
             return save ? "AA_Soccer_Goal_CatchBall_L_Succ" : "AA_Soccer_Goal_HitBall_L_Fail";
         }
 
-        if (keeperCol == 2)
+        if (col == 2)
         {
             return save ? "AA_Soccer_Goal_CatchBall_R_Succ" : "AA_Soccer_Goal_HitBall_R_Fail";
         }
