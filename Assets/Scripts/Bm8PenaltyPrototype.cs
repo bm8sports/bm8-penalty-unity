@@ -31,6 +31,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     public string StatusMessage { get; private set; } = "Ready";
     public string ActiveKeeperControllerName => activeKeeperControllerName;
+    public string KeeperMotionViolationMessage { get; private set; } = "";
 
     [Header("Imported Goalkeeper Animation")]
     [SerializeField] private Animator keeperAnimator;
@@ -1252,6 +1253,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         StopAllCoroutines();
         shooting = false;
         forceKeeperTestShot = false;
+        ClearKeeperMotionViolation();
         ClearImportedKeeperActionOffset();
         ball.position = ballStart;
         ball.rotation = Quaternion.identity;
@@ -1281,6 +1283,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private IEnumerator ShootRoutine()
     {
         shooting = true;
+        ClearKeeperMotionViolation();
         shootingStartedRealtime = Time.realtimeSinceStartup;
         shootingStartedWallClock = WallClockSeconds();
         ball.position = ballStart;
@@ -1420,6 +1423,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     yield break;
                 }
 
+                if (!VerifyKeeperMotionContract("TEST"))
+                {
+                    FinishKeeperTest(previousGoals, previousSaves, previousShotCount, StatusMessage);
+                    yield break;
+                }
+
                 yield return new WaitForSecondsRealtime(0.2f);
             }
         }
@@ -1477,6 +1486,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 yield break;
             }
 
+            if (!VerifyKeeperMotionContract("TEST TOP"))
+            {
+                FinishKeeperTest(previousGoals, previousSaves, previousShotCount, StatusMessage);
+                yield break;
+            }
+
             yield return new WaitForSecondsRealtime(0.2f);
         }
 
@@ -1510,6 +1525,19 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         string grid = GridName(col, row);
         string message = label + " controller mismatch " + grid;
         Debug.LogError(message + ": expected " + expected + ", got " + (string.IsNullOrEmpty(activeKeeperControllerName) ? "<none>" : activeKeeperControllerName));
+        SetStatus(message);
+        return false;
+    }
+
+    private bool VerifyKeeperMotionContract(string label)
+    {
+        if (!UseAaAnimatedKeeper || string.IsNullOrEmpty(KeeperMotionViolationMessage))
+        {
+            return true;
+        }
+
+        string message = label + " motion mismatch " + GridName(keeperCol, keeperRow);
+        Debug.LogError(message + ": " + KeeperMotionViolationMessage + ". Controller: " + (string.IsNullOrEmpty(activeKeeperControllerName) ? "<none>" : activeKeeperControllerName));
         SetStatus(message);
         return false;
     }
@@ -1871,6 +1899,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void ForceReadyReset()
     {
+        ClearKeeperMotionViolation();
         ball.position = ballStart;
         ball.rotation = Quaternion.identity;
         ball.localScale = ballBaseScale;
@@ -2290,6 +2319,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         keeperVisibleModel.localRotation = importedKeeperAnchorLocalRotation * importedKeeperActionRotationOffset * readyRotation;
         keeperVisibleModel.localScale = importedKeeperAnchorLocalScale;
         ClampImportedKeeperVisibleBounds();
+        CheckKeeperRootMotionContract();
     }
 
     private static Vector3 ImportedKeeperReadyMotionOffset()
@@ -2311,6 +2341,54 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         importedKeeperActionOffsetLocal = Vector3.zero;
         importedKeeperActionRotationOffset = Quaternion.identity;
         importedKeeperActionT = 0f;
+    }
+
+    private void ClearKeeperMotionViolation()
+    {
+        KeeperMotionViolationMessage = "";
+    }
+
+    private void NoteKeeperMotionViolation(string message)
+    {
+        if (!shooting || !UseAaAnimatedKeeper || !string.IsNullOrEmpty(KeeperMotionViolationMessage))
+        {
+            return;
+        }
+
+        KeeperMotionViolationMessage = message;
+        Debug.LogError("BM8 keeper motion contract: " + message + ". Controller: " + (string.IsNullOrEmpty(activeKeeperControllerName) ? "<none>" : activeKeeperControllerName));
+        if (keeperTestMode)
+        {
+            SetStatus("TEST motion " + GridName(keeperCol, keeperRow));
+        }
+    }
+
+    private void CheckKeeperRootMotionContract()
+    {
+        if (!shooting || !UseAaAnimatedKeeper || keeper == null)
+        {
+            return;
+        }
+
+        Vector3 delta = keeper.position - keeperStart;
+        float maxX = keeperRow == 0 ? 0.34f : keeperRow == 1 ? 1.28f : 1.36f;
+        float maxUp = keeperRow == 0 ? 0.2f : keeperRow == 1 ? 0.18f : 0.12f;
+        float maxDown = keeperRow == 2 ? 0.08f : 0.04f;
+        float maxForward = keeperRow == 0 ? 0.16f : keeperRow == 1 ? 0.32f : 0.52f;
+        float maxBack = 0.14f;
+
+        if (Mathf.Abs(delta.x) > maxX)
+        {
+            NoteKeeperMotionViolation("root x drift " + delta.x.ToString("0.00") + " exceeds " + maxX.ToString("0.00"));
+        }
+        else if (delta.y > maxUp || delta.y < -maxDown)
+        {
+            NoteKeeperMotionViolation("root y drift " + delta.y.ToString("0.00") + " outside -" + maxDown.ToString("0.00") + "/" + maxUp.ToString("0.00"));
+        }
+        else if (delta.z > maxBack || delta.z < -maxForward)
+        {
+            NoteKeeperMotionViolation("root z drift " + delta.z.ToString("0.00") + " outside -" + maxForward.ToString("0.00") + "/" + maxBack.ToString("0.00"));
+        }
     }
 
     private void ApplyImportedKeeperActionOffset(float t)
@@ -2429,32 +2507,59 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         const float goalMaxY = 2.92f;
         float goalMinZ = keeperStart.z - 1.22f;
         float goalMaxZ = keeperStart.z + 0.82f;
+        float allowedOvershootX = keeperRow == 0 ? 0.18f : 0.32f;
+        float allowedOvershootY = keeperRow == 0 ? 0.28f : 0.18f;
+        float allowedOvershootZ = keeperRow == 0 ? 0.22f : 0.32f;
 
         if (bounds.min.x < goalMinX)
         {
             correction.x += goalMinX - bounds.min.x;
+            if (shooting && goalMinX - bounds.min.x > allowedOvershootX)
+            {
+                NoteKeeperMotionViolation("visible min x " + bounds.min.x.ToString("0.00") + " beyond " + goalMinX.ToString("0.00"));
+            }
         }
         else if (bounds.max.x > goalMaxX)
         {
             correction.x -= bounds.max.x - goalMaxX;
+            if (shooting && bounds.max.x - goalMaxX > allowedOvershootX)
+            {
+                NoteKeeperMotionViolation("visible max x " + bounds.max.x.ToString("0.00") + " beyond " + goalMaxX.ToString("0.00"));
+            }
         }
 
         if (bounds.min.y < goalMinY)
         {
             correction.y += goalMinY - bounds.min.y;
+            if (shooting && goalMinY - bounds.min.y > allowedOvershootY)
+            {
+                NoteKeeperMotionViolation("visible min y " + bounds.min.y.ToString("0.00") + " below " + goalMinY.ToString("0.00"));
+            }
         }
         else if (bounds.max.y > goalMaxY)
         {
             correction.y -= bounds.max.y - goalMaxY;
+            if (shooting && bounds.max.y - goalMaxY > allowedOvershootY)
+            {
+                NoteKeeperMotionViolation("visible max y " + bounds.max.y.ToString("0.00") + " beyond " + goalMaxY.ToString("0.00"));
+            }
         }
 
         if (bounds.min.z < goalMinZ)
         {
             correction.z += goalMinZ - bounds.min.z;
+            if (shooting && goalMinZ - bounds.min.z > allowedOvershootZ)
+            {
+                NoteKeeperMotionViolation("visible min z " + bounds.min.z.ToString("0.00") + " beyond " + goalMinZ.ToString("0.00"));
+            }
         }
         else if (bounds.max.z > goalMaxZ)
         {
             correction.z -= bounds.max.z - goalMaxZ;
+            if (shooting && bounds.max.z - goalMaxZ > allowedOvershootZ)
+            {
+                NoteKeeperMotionViolation("visible max z " + bounds.max.z.ToString("0.00") + " beyond " + goalMaxZ.ToString("0.00"));
+            }
         }
 
         Vector3 centerLocal = keeper.InverseTransformPoint(bounds.center);

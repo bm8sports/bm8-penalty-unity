@@ -284,15 +284,15 @@ public static class Bm8SceneBuilder
                     return;
                 }
 
-                if (StatusContains("timeout") || StatusContains("watchdog") || StatusContains("mismatch"))
+                if (StatusContains("timeout") || StatusContains("watchdog") || StatusContains("mismatch") || StatusContains("motion"))
                 {
-                    FailRuntimeTest("TEST 9 reported a runtime problem. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName());
+                    FailRuntimeTest("TEST 9 reported a runtime problem. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName() + ". Motion: " + CurrentKeeperMotionViolation());
                     return;
                 }
 
                 if (ElapsedSeconds() > FullGridTimeoutSeconds)
                 {
-                    FailRuntimeTest("TEST 9 did not complete within " + FullGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName());
+                    FailRuntimeTest("TEST 9 did not complete within " + FullGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName() + ". Motion: " + CurrentKeeperMotionViolation());
                 }
 
                 return;
@@ -310,15 +310,15 @@ public static class Bm8SceneBuilder
                     return;
                 }
 
-                if (StatusContains("timeout") || StatusContains("watchdog") || StatusContains("mismatch"))
+                if (StatusContains("timeout") || StatusContains("watchdog") || StatusContains("mismatch") || StatusContains("motion"))
                 {
-                    FailRuntimeTest("TEST TOP reported a runtime problem. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName());
+                    FailRuntimeTest("TEST TOP reported a runtime problem. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName() + ". Motion: " + CurrentKeeperMotionViolation());
                     return;
                 }
 
                 if (ElapsedSeconds() > TopGridTimeoutSeconds)
                 {
-                    FailRuntimeTest("TEST TOP did not complete within " + TopGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName());
+                    FailRuntimeTest("TEST TOP did not complete within " + TopGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName() + ". Motion: " + CurrentKeeperMotionViolation());
                 }
             }
         }
@@ -368,6 +368,16 @@ public static class Bm8SceneBuilder
             }
 
             return prototype.ActiveKeeperControllerName;
+        }
+
+        private static string CurrentKeeperMotionViolation()
+        {
+            if (prototype == null || string.IsNullOrWhiteSpace(prototype.KeeperMotionViolationMessage))
+            {
+                return "<none>";
+            }
+
+            return prototype.KeeperMotionViolationMessage;
         }
 
         private static double ElapsedSeconds()
