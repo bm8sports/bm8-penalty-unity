@@ -7,12 +7,120 @@ public static class Bm8SceneBuilder
 {
     private const string StylizedKeeperPath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/Goalkeeper_TPose.FBX";
     private const string RobotKeeperPath = "Assets/animo/AA_Soccer_Goalkeeper/Prefabs/Robot.prefab";
+    private const string AaControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
+
+    private static readonly string[] RequiredKeeperControllers =
+    {
+        "AA_Soccer_Goal_Idel",
+        "AA_Soccer_Goal_CatchBall_UP_Succ",
+        "AA_Soccer_Goal_HitBall_UP_Fail",
+        "AA_Soccer_Goal_CatchBall_L_Succ",
+        "AA_Soccer_Goal_HitBall_L_Fail",
+        "AA_Soccer_Goal_CatchBall_R_Succ",
+        "AA_Soccer_Goal_HitBall_R_Fail",
+        "AA_Soccer_Goal_CatchBall_F_Succ",
+        "AA_Soccer_Goal_HitBall_F_Fail",
+        "AA_Soccer_Goal_CatchBall_LD_Succ",
+        "AA_Soccer_Goal_CatchBall_LD_Fail",
+        "AA_Soccer_Goal_CatchBall_RD_Succ",
+        "AA_Soccer_Goal_CatchBall_RD_Fail",
+        "AA_Soccer_Goal_HitBall_TL_Succ",
+        "AA_Soccer_Goal_HitBall_TL_Fail",
+        "AA_Soccer_Goal_HitBall_TR_Succ",
+        "AA_Soccer_Goal_HitBall_TR_Fail"
+    };
 
     [MenuItem("BM8/Open Penalty Prototype Scene")]
     public static void OpenPrototypeScene()
     {
         EditorSceneManager.OpenScene("Assets/Scenes/BM8PenaltyPrototype.unity", OpenSceneMode.Single);
         Debug.Log("BM8 penalty prototype scene opened.");
+    }
+
+    [MenuItem("BM8/Validate Goalkeeper Animation Setup")]
+    public static void ValidateGoalkeeperAnimationSetup()
+    {
+        int issues = 0;
+        string report = "BM8 goalkeeper animation validation:\n";
+
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(StylizedKeeperPath) == null)
+        {
+            issues++;
+            report += "- Missing uploaded stylized goalkeeper: " + StylizedKeeperPath + "\n";
+        }
+
+        if (AssetDatabase.LoadAssetAtPath<GameObject>(RobotKeeperPath) == null)
+        {
+            issues++;
+            report += "- Missing AA goalkeeper robot prefab: " + RobotKeeperPath + "\n";
+        }
+
+        for (int i = 0; i < RequiredKeeperControllers.Length; i++)
+        {
+            if (LoadKeeperController(RequiredKeeperControllers[i]) == null)
+            {
+                issues++;
+                report += "- Missing controller: " + RequiredKeeperControllers[i] + "\n";
+            }
+        }
+
+        Bm8PenaltyPrototype prototype = Object.FindAnyObjectByType<Bm8PenaltyPrototype>();
+        if (prototype == null)
+        {
+            issues++;
+            report += "- BM8PenaltyPrototype component not found in the open scene.\n";
+        }
+        else
+        {
+            SerializedObject serialized = new SerializedObject(prototype);
+            issues += ValidateControllerProperty(serialized, "keeperIdleController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperCatchForwardSuccessController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperCatchForwardFailController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperCatchUpSuccessController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperCatchUpFailController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperCatchLeftDownSuccessController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperCatchLeftDownFailController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperCatchRightDownSuccessController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperCatchRightDownFailController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperHitLeftSuccessController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperHitLeftFailController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperHitRightSuccessController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperHitRightFailController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperHitTopLeftSuccessController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperHitTopLeftFailController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperHitTopRightSuccessController", ref report);
+            issues += ValidateControllerProperty(serialized, "keeperHitTopRightFailController", ref report);
+        }
+
+        GameObject keeper = GameObject.Find("Goalkeeper");
+        if (keeper == null)
+        {
+            issues++;
+            report += "- Goalkeeper object not found in the open scene.\n";
+        }
+        else
+        {
+            Animator animator = keeper.GetComponentInChildren<Animator>(true);
+            if (animator == null)
+            {
+                issues++;
+                report += "- Goalkeeper has no Animator in its children.\n";
+            }
+            else if (!animator.isHuman)
+            {
+                issues++;
+                report += "- Goalkeeper Animator is not Humanoid; AA animations may not retarget.\n";
+            }
+        }
+
+        if (issues == 0)
+        {
+            Debug.Log(report + "- OK: all required goalkeeper animation assets and scene references are present.");
+        }
+        else
+        {
+            Debug.LogError(report + "- Issues found: " + issues);
+        }
     }
 
     [MenuItem("BM8/Use Uploaded Stylized Goalkeeper")]
@@ -367,10 +475,21 @@ public static class Bm8SceneBuilder
         serialized.FindProperty(propertyName).objectReferenceValue = LoadKeeperController(controllerName);
     }
 
+    private static int ValidateControllerProperty(SerializedObject serialized, string propertyName, ref string report)
+    {
+        SerializedProperty property = serialized.FindProperty(propertyName);
+        if (property == null || property.objectReferenceValue == null)
+        {
+            report += "- Scene reference missing: " + propertyName + "\n";
+            return 1;
+        }
+
+        return 0;
+    }
+
     private static RuntimeAnimatorController LoadKeeperController(string controllerName)
     {
-        return AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
-            "Assets/animo/AA_Soccer_Goalkeeper/Controller/" + controllerName + ".Controller");
+        return AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(AaControllerFolder + controllerName + ".Controller");
     }
 
     private static bool CreatePhotoBillboard(Transform parent, string name, string texturePath, Vector3 localPosition, Vector2 size)
