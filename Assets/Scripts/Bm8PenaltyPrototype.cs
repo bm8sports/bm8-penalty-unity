@@ -354,17 +354,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+        int avatarSide = KeeperAvatarSideForGoalColumn(keeperCol);
         Vector3 contact = AaKeeperContactWorld() + new Vector3(0f, keeperRow == 0 ? 0.12f : keeperRow == 2 ? -0.04f : 0.02f, -0.04f);
         float spread = keeperRow == 0 ? 0.13f : keeperRow == 2 ? 0.16f : 0.18f;
         Vector3 leftTarget = contact + new Vector3(-spread, keeperRow == 0 ? -0.02f : 0f, -0.02f);
         Vector3 rightTarget = contact + new Vector3(spread, keeperRow == 0 ? -0.02f : 0f, -0.02f);
-        if (side < 0f)
+        if (avatarSide < 0)
         {
             leftTarget = contact + new Vector3(-0.04f, 0.02f, -0.02f);
             rightTarget = contact + new Vector3(0.24f, -0.08f, 0.02f);
         }
-        else if (side > 0f)
+        else if (avatarSide > 0)
         {
             leftTarget = contact + new Vector3(-0.24f, -0.08f, 0.02f);
             rightTarget = contact + new Vector3(0.04f, 0.02f, -0.02f);
@@ -1330,7 +1330,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         bool save = forceKeeperTestShot ? forcedKeeperSave : ShouldKeeperSave(power);
         string keeperAction = KeeperActionName(keeperCol, keeperRow);
         SetStatus("Keeper " + keeperAction + " " + GridName(keeperCol, keeperRow));
-        saveReboundSide = keeperCol == 1 ? (aimCol == 0 ? -1f : aimCol == 2 ? 1f : UnityEngine.Random.value < 0.5f ? -1f : 1f) : Mathf.Sign(keeperCol - 1f);
+        saveReboundSide = keeperCol == 1 ? (aimCol == 0 ? -1f : aimCol == 2 ? 1f : UnityEngine.Random.value < 0.5f ? -1f : 1f) : GoalGridSide(keeperCol);
         PlayKeeperDiveAnimation(save);
         float keeperDuration = save ? keeperRow == 0 ? 1.38f : 1.08f : 0.92f;
         keeperActionStartedAt = Time.time;
@@ -2396,7 +2396,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private void ApplyImportedKeeperActionOffset(float t)
     {
         importedKeeperActionT = Mathf.Clamp01(t);
-        float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+        float side = GoalGridSide(keeperCol);
         float visualSide = side;
         bool top = keeperRow == 0;
         bool middle = keeperRow == 1;
@@ -2471,11 +2471,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+        int avatarSide = KeeperAvatarSideForGoalColumn(keeperCol);
         Vector3 contact = AaKeeperContactWorld() + new Vector3(0f, 0.16f, -0.08f);
-        Vector3 leftTarget = contact + new Vector3(side < 0f ? -0.04f : -0.22f, side < 0f ? 0.02f : -0.06f, -0.02f);
-        Vector3 rightTarget = contact + new Vector3(side > 0f ? 0.04f : 0.22f, side > 0f ? 0.02f : -0.06f, -0.02f);
-        if (side == 0f)
+        Vector3 leftTarget = contact + new Vector3(avatarSide < 0 ? -0.04f : -0.22f, avatarSide < 0 ? 0.02f : -0.06f, -0.02f);
+        Vector3 rightTarget = contact + new Vector3(avatarSide > 0 ? 0.04f : 0.22f, avatarSide > 0 ? 0.02f : -0.06f, -0.02f);
+        if (avatarSide == 0)
         {
             leftTarget = contact + new Vector3(-0.16f, 0f, -0.02f);
             rightTarget = contact + new Vector3(0.16f, 0f, -0.02f);
@@ -2887,12 +2887,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         activeKeeperControllerName = controller != null ? aaControllerName : "";
         if (controller == null && keeperRow == 0)
         {
-            if (keeperCol == 0)
+            int avatarSide = KeeperAvatarSideForGoalColumn(keeperCol);
+            if (avatarSide < 0)
             {
                 controller = save ? keeperHitTopLeftSuccessController : keeperHitTopLeftFailController;
                 activeKeeperControllerName = controller != null ? controller.name : "";
             }
-            else if (keeperCol == 2)
+            else if (avatarSide > 0)
             {
                 controller = save ? keeperHitTopRightSuccessController : keeperHitTopRightFailController;
                 activeKeeperControllerName = controller != null ? controller.name : "";
@@ -2905,12 +2906,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
         else if (controller == null && keeperRow == 2)
         {
-            if (keeperCol == 0)
+            int avatarSide = KeeperAvatarSideForGoalColumn(keeperCol);
+            if (avatarSide < 0)
             {
                 controller = save ? keeperCatchLeftDownSuccessController : keeperCatchLeftDownFailController;
                 activeKeeperControllerName = controller != null ? controller.name : "";
             }
-            else if (keeperCol == 2)
+            else if (avatarSide > 0)
             {
                 controller = save ? keeperCatchRightDownSuccessController : keeperCatchRightDownFailController;
                 activeKeeperControllerName = controller != null ? controller.name : "";
@@ -2923,12 +2925,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
         else if (controller == null)
         {
-            if (keeperCol == 0)
+            int avatarSide = KeeperAvatarSideForGoalColumn(keeperCol);
+            if (avatarSide < 0)
             {
                 controller = save ? keeperHitLeftSuccessController : keeperHitLeftFailController;
                 activeKeeperControllerName = controller != null ? controller.name : "";
             }
-            else if (keeperCol == 2)
+            else if (avatarSide > 0)
             {
                 controller = save ? keeperHitRightSuccessController : keeperHitRightFailController;
                 activeKeeperControllerName = controller != null ? controller.name : "";
@@ -2951,14 +2954,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static string ExpectedAaKeeperControllerName(int col, int row, bool save)
     {
         string suffix = save ? "Succ" : "Fail";
+        int avatarSide = KeeperAvatarSideForGoalColumn(col);
         if (row == 0)
         {
-            if (col == 0)
+            if (avatarSide < 0)
             {
                 return save ? "AA_Soccer_Goal_LHandHit_UL" : "AA_Soccer_Goal_HitBall_TL_Fail";
             }
 
-            if (col == 2)
+            if (avatarSide > 0)
             {
                 return save ? "AA_Soccer_Goal_RHandHit_UR" : "AA_Soccer_Goal_HitBall_TR_Fail";
             }
@@ -2968,12 +2972,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         if (row == 2)
         {
-            if (col == 0)
+            if (avatarSide < 0)
             {
                 return "AA_Soccer_Goal_CatchBall_LD_" + suffix;
             }
 
-            if (col == 2)
+            if (avatarSide > 0)
             {
                 return "AA_Soccer_Goal_CatchBall_RD_" + suffix;
             }
@@ -2981,17 +2985,27 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return "AA_Soccer_Goal_CatchBall_F_" + suffix;
         }
 
-        if (col == 0)
+        if (avatarSide < 0)
         {
             return save ? "AA_Soccer_Goal_CatchBall_L_Succ" : "AA_Soccer_Goal_HitBall_L_Fail";
         }
 
-        if (col == 2)
+        if (avatarSide > 0)
         {
             return save ? "AA_Soccer_Goal_CatchBall_R_Succ" : "AA_Soccer_Goal_HitBall_R_Fail";
         }
 
         return save ? "AA_Soccer_Goal_CatchBall_F_Succ" : "AA_Soccer_Goal_HitBall_F_Fail";
+    }
+
+    private static int GoalGridSide(int col)
+    {
+        return col == 0 ? -1 : col == 2 ? 1 : 0;
+    }
+
+    private static int KeeperAvatarSideForGoalColumn(int col)
+    {
+        return -GoalGridSide(col);
     }
 
     private static RuntimeAnimatorController LoadAaKeeperController(string controllerName)
@@ -3020,11 +3034,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         if (!saved)
         {
-            float missSide = keeperCol == 1 ? 0f : Mathf.Sign(keeperCol - 1f) * 0.42f;
+            float missSide = GoalGridSide(keeperCol) * 0.42f;
             return keeperStart + new Vector3(missSide, 0f, -0.08f);
         }
 
-        float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+        float side = GoalGridSide(keeperCol);
         if (keeperRow == 0)
         {
             return keeperStart + new Vector3(side * 0.16f, 0.02f, -0.04f);
@@ -3045,7 +3059,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return Quaternion.identity;
         }
 
-        float side = keeperCol == 0 ? -1f : keeperCol == 2 ? 1f : 0f;
+        float side = GoalGridSide(keeperCol);
         if (keeperRow == 0)
         {
             return Quaternion.Euler(-1f, side * 2f, -side * 1.5f);
@@ -4496,7 +4510,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private Vector3 AaPalmLoadOffset()
     {
-        float side = keeperCol == 1 ? saveReboundSide : Mathf.Sign(keeperCol - 1f);
+        float side = keeperCol == 1 ? saveReboundSide : GoalGridSide(keeperCol);
         if (keeperRow == 0)
         {
             return new Vector3(side * 0.035f, 0.015f, -0.055f);
@@ -4535,7 +4549,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private Vector3 AaCatchSettleWorld(Vector3 contact, float reboundSide)
     {
-        float side = keeperCol == 1 ? reboundSide : Mathf.Sign(keeperCol - 1f);
+        float side = keeperCol == 1 ? reboundSide : GoalGridSide(keeperCol);
         float sideNudge = keeperCol == 1 ? side * UnityEngine.Random.Range(0.04f, 0.12f) : side * UnityEngine.Random.Range(0.1f, 0.24f);
         float yDrop = keeperRow == 0 ? UnityEngine.Random.Range(-0.04f, 0.04f) : keeperRow == 2 ? UnityEngine.Random.Range(-0.14f, -0.06f) : UnityEngine.Random.Range(-0.08f, 0.02f);
         float zPull = keeperRow == 0 ? UnityEngine.Random.Range(-0.22f, -0.12f) : UnityEngine.Random.Range(-0.34f, -0.18f);
@@ -4547,7 +4561,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private Vector3 AaCatchDropWorld(Vector3 caught, float reboundSide)
     {
-        float side = keeperCol == 1 ? reboundSide : Mathf.Sign(keeperCol - 1f);
+        float side = keeperCol == 1 ? reboundSide : GoalGridSide(keeperCol);
         return new Vector3(
             Mathf.Clamp(caught.x + side * UnityEngine.Random.Range(0.04f, 0.16f), -1.8f, 1.8f),
             keeperRow == 0 ? 0.3f : 0.24f,
@@ -4611,11 +4625,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return false;
         }
 
-        if (keeperCol == 0 && leftHand != null)
+        int avatarSide = KeeperAvatarSideForGoalColumn(keeperCol);
+        if (avatarSide < 0 && leftHand != null)
         {
             palm = leftHand.position;
         }
-        else if (keeperCol == 2 && rightHand != null)
+        else if (avatarSide > 0 && rightHand != null)
         {
             palm = rightHand.position;
         }

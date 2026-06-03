@@ -1,3 +1,4 @@
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -172,10 +173,63 @@ public static class Bm8SceneBuilder
         }
 
         OpenPrototypeScene();
+        if (!ValidateKeeperDirectionContract())
+        {
+            return;
+        }
+
         RepairGoalkeeperAnimationReferences();
         EditorPrefs.SetBool(RuntimeTestRequestKey, true);
         EditorApplication.isPlaying = true;
         Debug.Log("BM8 keeper runtime test requested. Unity will run TEST 9 and TEST TOP automatically.");
+    }
+
+    [MenuItem("BM8/Validate Keeper Direction Contract")]
+    public static bool ValidateKeeperDirectionContract()
+    {
+        MethodInfo expectedController = typeof(Bm8PenaltyPrototype).GetMethod(
+            "ExpectedAaKeeperControllerName",
+            BindingFlags.Static | BindingFlags.NonPublic);
+        if (expectedController == null)
+        {
+            Debug.LogError("BM8 keeper direction contract failed: ExpectedAaKeeperControllerName was not found.");
+            return false;
+        }
+
+        int issues = 0;
+        issues += ValidateExpectedController(expectedController, 0, 0, true, "AA_Soccer_Goal_RHandHit_UR");
+        issues += ValidateExpectedController(expectedController, 2, 0, true, "AA_Soccer_Goal_LHandHit_UL");
+        issues += ValidateExpectedController(expectedController, 0, 0, false, "AA_Soccer_Goal_HitBall_TR_Fail");
+        issues += ValidateExpectedController(expectedController, 2, 0, false, "AA_Soccer_Goal_HitBall_TL_Fail");
+        issues += ValidateExpectedController(expectedController, 0, 1, true, "AA_Soccer_Goal_CatchBall_R_Succ");
+        issues += ValidateExpectedController(expectedController, 2, 1, true, "AA_Soccer_Goal_CatchBall_L_Succ");
+        issues += ValidateExpectedController(expectedController, 0, 1, false, "AA_Soccer_Goal_HitBall_R_Fail");
+        issues += ValidateExpectedController(expectedController, 2, 1, false, "AA_Soccer_Goal_HitBall_L_Fail");
+        issues += ValidateExpectedController(expectedController, 0, 2, true, "AA_Soccer_Goal_CatchBall_RD_Succ");
+        issues += ValidateExpectedController(expectedController, 2, 2, true, "AA_Soccer_Goal_CatchBall_LD_Succ");
+        issues += ValidateExpectedController(expectedController, 0, 2, false, "AA_Soccer_Goal_CatchBall_RD_Fail");
+        issues += ValidateExpectedController(expectedController, 2, 2, false, "AA_Soccer_Goal_CatchBall_LD_Fail");
+
+        if (issues > 0)
+        {
+            Debug.LogError("BM8 keeper direction contract failed with " + issues + " issue(s). Goal-grid L/R must be mirrored to goalkeeper-avatar R/L.");
+            return false;
+        }
+
+        Debug.Log("BM8 keeper direction contract passed.");
+        return true;
+    }
+
+    private static int ValidateExpectedController(MethodInfo expectedController, int col, int row, bool save, string expected)
+    {
+        string actual = expectedController.Invoke(null, new object[] { col, row, save }) as string;
+        if (actual == expected)
+        {
+            return 0;
+        }
+
+        Debug.LogError("BM8 keeper direction contract failed: col " + col + ", row " + row + ", save " + save + " expected " + expected + ", got " + (string.IsNullOrEmpty(actual) ? "<none>" : actual));
+        return 1;
     }
 
     [InitializeOnLoad]
