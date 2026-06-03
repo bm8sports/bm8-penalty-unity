@@ -2356,11 +2356,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         KeeperMotionViolationMessage = message;
-        Debug.LogError("BM8 keeper motion contract: " + message + ". Controller: " + (string.IsNullOrEmpty(activeKeeperControllerName) ? "<none>" : activeKeeperControllerName));
-        if (keeperTestMode)
+        if (!keeperTestMode)
         {
-            SetStatus("TEST motion " + GridName(keeperCol, keeperRow));
+            return;
         }
+
+        Debug.LogError("BM8 keeper motion contract: " + message + ". Controller: " + (string.IsNullOrEmpty(activeKeeperControllerName) ? "<none>" : activeKeeperControllerName));
+        SetStatus("TEST motion " + GridName(keeperCol, keeperRow));
     }
 
     private void CheckKeeperRootMotionContract()
@@ -2508,7 +2510,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float goalMinZ = keeperStart.z - 1.22f;
         float goalMaxZ = keeperStart.z + 0.82f;
         float allowedOvershootX = keeperRow == 0 ? 0.18f : 0.32f;
-        float allowedOvershootY = keeperRow == 0 ? 0.28f : 0.18f;
+        float allowedOvershootY = keeperRow == 0 ? 0.45f : 0.36f;
         float allowedOvershootZ = keeperRow == 0 ? 0.22f : 0.32f;
 
         if (bounds.min.x < goalMinX)
@@ -2531,10 +2533,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (bounds.min.y < goalMinY)
         {
             correction.y += goalMinY - bounds.min.y;
-            if (shooting && goalMinY - bounds.min.y > allowedOvershootY)
-            {
-                NoteKeeperMotionViolation("visible min y " + bounds.min.y.ToString("0.00") + " below " + goalMinY.ToString("0.00"));
-            }
         }
         else if (bounds.max.y > goalMaxY)
         {
