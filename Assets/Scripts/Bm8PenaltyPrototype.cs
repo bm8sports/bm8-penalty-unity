@@ -13,6 +13,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static readonly bool UseAaAnimatedKeeper = true;
     private static readonly bool UseGeneratedKeeperSpriteSheet = false;
     private static readonly bool UseArcadeVideoCamera = true;
+    private static readonly bool ShowShotYellowEffects = false;
+    private const float LowSaveFootGroundY = 0.02f;
+    private const float LowSaveFootBoneHoldY = 0.025f;
+    private const float LowSaveMaxFootY = 0.08f;
+    private const float LowSaveSoftGroundStartT = 0.82f;
+    private const float LowSaveHardGroundStartT = 0.95f;
+    private const float LowSaveFootPinStartT = 0.86f;
+    private const float LowSaveFootPinFullT = 0.995f;
     private const float ShotWatchdogSeconds = 14f;
     private const double ShotWatchdogWallSeconds = 14d;
     private const float KeeperTestShotTimeoutSeconds = 15f;
@@ -35,6 +43,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     [Header("Imported Goalkeeper Animation")]
     [SerializeField] private Animator keeperAnimator;
+    private Bm8KeeperIkDriver keeperIkDriver;
     [SerializeField] private RuntimeAnimatorController keeperIdleController;
     [SerializeField] private RuntimeAnimatorController keeperCatchForwardSuccessController;
     [SerializeField] private RuntimeAnimatorController keeperCatchForwardFailController;
@@ -100,6 +109,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private readonly bool[] shotHistoryResolved = new bool[5];
     private bool shooting;
     private bool keeperCurrentSave;
+    private bool keeperActionActive;
     private int keeperActionCol = 1;
     private int keeperActionRow = 1;
     private int goals;
@@ -215,6 +225,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void Update()
     {
+        DisableShotYellowEffectsIfNeeded();
+
         if (!arcadeSceneFixed)
         {
             HideSolidGoalNetBackdrop();
@@ -306,12 +318,19 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         RunShotWatchdog();
         if (UseAaAnimatedKeeper)
         {
+            EnsureKeeperIkDriver();
             AnchorImportedKeeperVisibleModel();
+            ApplyKeeperPostAnimatorPose();
             CheckKeeperSaveRealismContract();
         }
     }
 
     private void OnAnimatorIK(int layerIndex)
+    {
+        HandleKeeperAnimatorIk(layerIndex);
+    }
+
+    internal void HandleKeeperAnimatorIk(int layerIndex)
     {
         if (!UseAaAnimatedKeeper || keeperAnimator == null || !keeperAnimator.isHuman)
         {
@@ -323,10 +342,40 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             Vector3 leftReady = keeper.TransformPoint(new Vector3(-0.34f, 1.18f, -0.34f));
             Vector3 rightReady = keeper.TransformPoint(new Vector3(0.34f, 1.18f, -0.34f));
             ApplyKeeperHandIk(leftReady, rightReady, 0.42f);
+            ClearKeeperFootIk();
             return;
         }
 
         ApplyKeeperActionHandIk();
+        ApplyKeeperLowSideFootIk();
+    }
+
+    internal void HandleKeeperAnimatorLatePose()
+    {
+        ApplyKeeperPostAnimatorPose();
+    }
+
+    private void EnsureKeeperIkDriver()
+    {
+        if (keeperAnimator == null)
+        {
+            keeperIkDriver = null;
+            return;
+        }
+
+        if (keeperIkDriver != null && keeperIkDriver.gameObject == keeperAnimator.gameObject)
+        {
+            keeperIkDriver.owner = this;
+            return;
+        }
+
+        keeperIkDriver = keeperAnimator.GetComponent<Bm8KeeperIkDriver>();
+        if (keeperIkDriver == null)
+        {
+            keeperIkDriver = keeperAnimator.gameObject.AddComponent<Bm8KeeperIkDriver>();
+        }
+
+        keeperIkDriver.owner = this;
     }
 
     private void ApplyKeeperHandIk(Vector3 leftTarget, Vector3 rightTarget, float weight)
@@ -672,6 +721,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         FillGuiRect(new Rect(0f, 0f, width, height * 0.075f), new Color(0f, 0f, 0f, sideAlpha * 0.72f));
         FillGuiRect(new Rect(0f, height * 0.925f, width, height * 0.075f), new Color(0f, 0f, 0f, sideAlpha * 0.72f));
 
+        if (!ShowShotYellowEffects)
+        {
+            return;
+        }
+
         for (int i = 0; i < 7; i++)
         {
             float y = height * (0.24f + i * 0.078f);
@@ -686,6 +740,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void DrawShotSpeedLines()
     {
+        if (!ShowShotYellowEffects)
+        {
+            return;
+        }
+
         if (Time.time >= shotSpeedLineUntil)
         {
             return;
@@ -757,12 +816,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         Vector2 center = new Vector2(screen.x, Screen.height - screen.y);
         float length = Mathf.Lerp(18f, 76f, pop);
         float thickness = Mathf.Lerp(7f, 2.5f, pop);
-        Color gold = new Color(1f, 0.94f, 0.18f, Mathf.Lerp(0.85f, 0.12f, pop) * life);
+        Color blue = new Color(0.54f, 0.86f, 1f, Mathf.Lerp(0.7f, 0.1f, pop) * life);
         Color white = new Color(1f, 1f, 1f, Mathf.Lerp(0.75f, 0.08f, pop) * life);
-        FillGuiRect(new Rect(center.x - length * 0.5f, center.y - thickness * 0.5f, length, thickness), gold);
+        FillGuiRect(new Rect(center.x - length * 0.5f, center.y - thickness * 0.5f, length, thickness), blue);
         FillGuiRect(new Rect(center.x - thickness * 0.5f, center.y - length * 0.5f, thickness, length), white);
-        FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f - length * 0.22f, length * 0.72f, thickness), gold);
-        FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f + length * 0.22f, length * 0.72f, thickness), gold);
+        FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f - length * 0.22f, length * 0.72f, thickness), blue);
+        FillGuiRect(new Rect(center.x - length * 0.36f, center.y - thickness * 0.5f + length * 0.22f, length * 0.72f, thickness), blue);
     }
 
     private void DrawCenterCatchHalo()
@@ -785,11 +844,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         Vector2 center = new Vector2(screen.x, Screen.height - screen.y);
         float size = Mathf.Lerp(34f, 78f, t);
         Color blue = new Color(0.18f, 0.72f, 1f, Mathf.Lerp(0.34f, 0.03f, t));
-        Color gold = new Color(1f, 0.9f, 0.12f, Mathf.Lerp(0.48f, 0.04f, t));
+        Color white = new Color(1f, 1f, 1f, Mathf.Lerp(0.42f, 0.035f, t));
         FillGuiRect(new Rect(center.x - size * 0.5f, center.y - 3f, size, 6f), blue);
         FillGuiRect(new Rect(center.x - 3f, center.y - size * 0.5f, 6f, size), blue);
-        FillGuiRect(new Rect(center.x - size * 0.34f, center.y - size * 0.18f, size * 0.68f, 4f), gold);
-        FillGuiRect(new Rect(center.x - size * 0.34f, center.y + size * 0.18f, size * 0.68f, 4f), gold);
+        FillGuiRect(new Rect(center.x - size * 0.34f, center.y - size * 0.18f, size * 0.68f, 4f), white);
+        FillGuiRect(new Rect(center.x - size * 0.34f, center.y + size * 0.18f, size * 0.68f, 4f), white);
         FillGuiRect(new Rect(center.x - 9f * pulse, center.y - 9f * pulse, 18f * pulse, 18f * pulse), new Color(1f, 1f, 1f, 0.22f * (1f - t)));
     }
 
@@ -812,12 +871,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float life = 1f - progress;
         float pop = Mathf.Sin(Mathf.Clamp01(age / 0.32f) * Mathf.PI);
         Vector2 center = new Vector2(screen.x, Screen.height - screen.y);
-        Color gold = new Color(1f, 0.9f, 0.12f, Mathf.Lerp(0.58f, 0.04f, progress));
         Color red = new Color(1f, 0.18f, 0.08f, Mathf.Lerp(0.38f, 0.02f, progress));
         Color white = new Color(1f, 1f, 1f, Mathf.Lerp(0.72f, 0.05f, progress));
 
         float core = Mathf.Lerp(18f, 52f, pop);
-        FillGuiRect(new Rect(center.x - core * 0.5f, center.y - core * 0.12f, core, core * 0.24f), gold);
+        FillGuiRect(new Rect(center.x - core * 0.5f, center.y - core * 0.12f, core, core * 0.24f), white);
         FillGuiRect(new Rect(center.x - core * 0.12f, center.y - core * 0.5f, core * 0.24f, core), white);
 
         for (int i = 0; i < 8; i++)
@@ -827,7 +885,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float width = Mathf.Lerp(26f, 7f, progress);
             float height = Mathf.Lerp(5f, 2f, progress);
             Vector2 ray = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-            Color rayColor = i % 2 == 0 ? gold : red;
+            Color rayColor = i % 2 == 0 ? white : red;
             rayColor.a *= life;
             FillGuiRect(new Rect(center.x + ray.x * distance - width * 0.5f, center.y + ray.y * distance - height * 0.5f, width, height), rayColor);
         }
@@ -936,6 +994,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void DrawTargetLockOverlay()
     {
+        if (!ShowShotYellowEffects)
+        {
+            return;
+        }
+
         if (Time.time >= targetLockUntil || !TryGetGoalGuiRect(out Rect goalRect))
         {
             return;
@@ -960,6 +1023,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void DrawTargetConfirmRipple()
     {
+        if (!ShowShotYellowEffects)
+        {
+            return;
+        }
+
         if (Time.time >= targetLockUntil || !TryGetGoalGuiRect(out Rect goalRect))
         {
             return;
@@ -990,6 +1058,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void DrawKickFlash()
     {
+        if (!ShowShotYellowEffects)
+        {
+            return;
+        }
+
         if (Time.time >= kickFlashUntil || Camera.main == null)
         {
             return;
@@ -1298,6 +1371,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         StopAllCoroutines();
         shooting = false;
+        keeperActionActive = false;
         forceKeeperTestShot = false;
         ClearKeeperMotionViolation();
         ClearImportedKeeperActionOffset();
@@ -1329,6 +1403,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private IEnumerator ShootRoutine()
     {
         shooting = true;
+        keeperActionActive = false;
         ClearKeeperMotionViolation();
         keeperSaveGroundLock = false;
         keeperSaveContactChecked = false;
@@ -1388,6 +1463,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float keeperDuration = save && UseAaAnimatedKeeper ? aaProfile.actionDuration : save ? keeperRow == 0 ? 1.38f : 1.08f : 0.92f;
         keeperActionStartedAt = Time.time;
         keeperActionDuration = Mathf.Max(0.1f, keeperDuration);
+        keeperActionActive = true;
         StartCoroutine(DiveKeeper(keeperTarget, keeperDuration, save));
         float ballDuration = save && UseAaAnimatedKeeper ? aaProfile.ballDuration : save ? keeperRow == 0 ? 1.22f : 1.08f : 0.9f;
         yield return FlyBall(ballStart, target, save, ballDuration);
@@ -1425,6 +1501,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         yield return new WaitForSecondsRealtime(resultHold);
         yield return ReturnAllToReady(save ? 0.42f : 0.28f);
         SetStatus("Tap goal");
+        keeperActionActive = false;
         shooting = false;
     }
 
@@ -1664,7 +1741,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             SetLocalRotation(strikerRightArm, Mathf.Lerp(-86f, -18f, snap), 0f, -34f + aimSide * 9f);
             AnimateVisibleStriker(Mathf.Lerp(-12f, 22f, snap), bodyTurn * aimSide, follow);
             ApplyBallImpactScale(impact * 0.55f);
-            if (impact > 0.82f && Time.time >= kickFlashUntil)
+            if (ShowShotYellowEffects && impact > 0.82f && Time.time >= kickFlashUntil)
             {
                 kickFlashWorld = ball.position + new Vector3(aimSide * 0.05f, 0.08f, -0.08f);
                 kickFlashUntil = Time.time + 0.18f;
@@ -2007,9 +2084,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 motionRow == 0 ? 0.24f : 0.28f,
                 centerAaSave ? UnityEngine.Random.Range(-2.55f, -2.18f) : UnityEngine.Random.Range(motionRow == 0 ? -3.65f : -3.25f, motionRow == 0 ? -2.85f : -2.45f));
         float lastT = 0f;
-        shotSpeedLineStartedAt = Time.time;
-        shotSpeedLineUntil = Time.time + 0.56f;
-        shotSpeedLineSide = Mathf.Abs(to.x) < 0.1f ? 1f : Mathf.Sign(to.x);
+        if (ShowShotYellowEffects)
+        {
+            shotSpeedLineStartedAt = Time.time;
+            shotSpeedLineUntil = Time.time + 0.56f;
+            shotSpeedLineSide = Mathf.Abs(to.x) < 0.1f ? 1f : Mathf.Sign(to.x);
+        }
         bool saveDustTriggered = false;
         bool goalLandingGlowTriggered = false;
 
@@ -2433,7 +2513,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void CheckKeeperRootMotionContract()
     {
-        if (!shooting || !UseAaAnimatedKeeper || keeper == null)
+        if (!shooting || !keeperActionActive || !UseAaAnimatedKeeper || keeper == null)
         {
             return;
         }
@@ -2461,12 +2541,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void CheckKeeperSaveRealismContract()
     {
-        if (!shooting || !UseAaAnimatedKeeper || !keeperCurrentSave)
+        if (!shooting || !keeperActionActive || !UseAaAnimatedKeeper || !keeperCurrentSave)
         {
             return;
         }
 
         float actionT = Mathf.Clamp01((Time.time - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
+        ApplyLowSideSaveGrounding(actionT);
         CheckKeeperHandContactContract(actionT);
         CheckKeeperGroundedSaveHoldContract(actionT);
     }
@@ -2517,6 +2598,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         SnapImportedKeeperVisibleModelToGround();
+        ApplyLowSideSaveGrounding(actionT);
         if (keeperVisibleModel == null || !TryGetVisibleBounds(keeperVisibleModel, out Bounds bounds))
         {
             return;
@@ -2529,6 +2611,213 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             NoteKeeperMotionViolation("ground lift " + lift.ToString("0.00") + " exceeds " + maxGroundLift.ToString("0.00"));
         }
+
+        CheckLowSideSaveFootGroundContract(actionT);
+    }
+
+    private void ApplyKeeperPostAnimatorPose()
+    {
+        if (!shooting || !keeperActionActive || !UseAaAnimatedKeeper || !keeperCurrentSave)
+        {
+            return;
+        }
+
+        float actionT = Mathf.Clamp01((Time.time - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
+        ApplyLowSideSaveSettleMotion(actionT);
+        ApplyLowSideSaveGrounding(actionT);
+    }
+
+    private void ApplyLowSideSaveGrounding(float actionT)
+    {
+        if (!ShouldPinLowSideSaveFeet() || actionT < LowSaveSoftGroundStartT)
+        {
+            return;
+        }
+
+        PinLowSideSaveFeetForFinalPose(actionT);
+        if (actionT >= LowSaveHardGroundStartT)
+        {
+            float pullWeight = Smooth(Mathf.Clamp01(Mathf.InverseLerp(LowSaveHardGroundStartT, 1f, actionT)));
+            PullLowSideVisibleModelToFootGround(pullWeight);
+            PinLowSideSaveFeetForFinalPose(1f);
+        }
+    }
+
+    private void ApplyLowSideSaveSettleMotion(float actionT)
+    {
+        if (!ShouldPinLowSideSaveFeet() || keeperVisibleModel == null)
+        {
+            return;
+        }
+
+        float settleIn = Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.58f, 0.8f, actionT)));
+        float settleOut = 1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.86f, 1f, actionT)));
+        float settle = settleIn * settleOut;
+        if (settle <= 0.001f)
+        {
+            return;
+        }
+
+        float side = GoalGridSide(MotionKeeperCol);
+        float bodyDrop = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.62f, 0.9f, actionT)) * Mathf.PI) * settle;
+        keeperVisibleModel.position += new Vector3(side * 0.035f * settle, -0.018f * bodyDrop, -0.018f * settle);
+        keeperVisibleModel.rotation = Quaternion.Slerp(
+            keeperVisibleModel.rotation,
+            keeperVisibleModel.rotation * Quaternion.Euler(-3.5f * settle, 0f, -side * 4.5f * settle),
+            0.55f);
+    }
+
+    private void PullLowSideVisibleModelToFootGround(float weight)
+    {
+        if (keeperVisibleModel == null || !TryGetLowSideSaveMinFootY(out float minFootY))
+        {
+            return;
+        }
+
+        float correctionY = LowSaveFootBoneHoldY - minFootY;
+        if (correctionY >= -0.002f)
+        {
+            return;
+        }
+
+        keeperVisibleModel.position += new Vector3(0f, correctionY * Mathf.Clamp01(weight), 0f);
+    }
+
+    private void PinLowSideSaveFeetForFinalPose(float actionT)
+    {
+        if (MotionKeeperRow != 2
+            || MotionKeeperCol == 1
+            || actionT < LowSaveFootPinStartT
+            || keeperAnimator == null
+            || !keeperAnimator.isHuman)
+        {
+            return;
+        }
+
+        float weight = Smooth(Mathf.Clamp01(Mathf.InverseLerp(LowSaveFootPinStartT, LowSaveFootPinFullT, actionT)));
+        PinLowSideSaveFootBone(HumanBodyBones.LeftFoot, weight);
+        PinLowSideSaveFootBone(HumanBodyBones.RightFoot, weight);
+    }
+
+    private void PinLowSideSaveFootBone(HumanBodyBones bone, float weight)
+    {
+        Transform foot = keeperAnimator.GetBoneTransform(bone);
+        if (foot == null)
+        {
+            return;
+        }
+
+        Vector3 position = foot.position;
+        position.y = Mathf.Lerp(position.y, LowSaveFootBoneHoldY, Mathf.Clamp01(weight));
+        foot.position = position;
+    }
+
+    private void ApplyKeeperLowSideFootIk()
+    {
+        if (!ShouldPinLowSideSaveFeet())
+        {
+            ClearKeeperFootIk();
+            return;
+        }
+
+        float actionT = Mathf.Clamp01((Time.time - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
+        float pinWeight = Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.78f, 0.98f, actionT)));
+        if (pinWeight <= 0.001f)
+        {
+            ClearKeeperFootIk();
+            return;
+        }
+
+        ApplyKeeperFootIkGoal(AvatarIKGoal.LeftFoot, pinWeight);
+        ApplyKeeperFootIkGoal(AvatarIKGoal.RightFoot, pinWeight);
+    }
+
+    private bool ShouldPinLowSideSaveFeet()
+    {
+        return shooting
+            && keeperActionActive
+            && UseAaAnimatedKeeper
+            && keeperCurrentSave
+            && MotionKeeperRow == 2
+            && MotionKeeperCol != 1
+            && keeperAnimator != null
+            && keeperAnimator.isHuman;
+    }
+
+    private void ApplyKeeperFootIkGoal(AvatarIKGoal goal, float weight)
+    {
+        HumanBodyBones footBone = goal == AvatarIKGoal.LeftFoot ? HumanBodyBones.LeftFoot : HumanBodyBones.RightFoot;
+        Transform foot = keeperAnimator.GetBoneTransform(footBone);
+        if (foot == null)
+        {
+            return;
+        }
+
+        Vector3 position = foot.position;
+        position.y = Mathf.Lerp(position.y, LowSaveFootGroundY, Mathf.Clamp01(weight));
+        keeperAnimator.SetIKPositionWeight(goal, Mathf.Clamp01(weight));
+        keeperAnimator.SetIKRotationWeight(goal, Mathf.Clamp01(weight) * 0.45f);
+        keeperAnimator.SetIKPosition(goal, position);
+        keeperAnimator.SetIKRotation(goal, foot.rotation);
+    }
+
+    private void ClearKeeperFootIk()
+    {
+        if (keeperAnimator == null)
+        {
+            return;
+        }
+
+        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.LeftFoot, 0f);
+        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.LeftFoot, 0f);
+        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.RightFoot, 0f);
+        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.RightFoot, 0f);
+    }
+
+    private void CheckLowSideSaveFootGroundContract(float actionT)
+    {
+        if (MotionKeeperRow != 2 || MotionKeeperCol == 1 || actionT < 0.99f)
+        {
+            return;
+        }
+
+        ApplyLowSideSaveGrounding(actionT);
+        if (!TryGetLowSideSaveMinFootY(out float minFootY))
+        {
+            return;
+        }
+
+        if (minFootY > LowSaveMaxFootY)
+        {
+            NoteKeeperMotionViolation("low foot lift " + minFootY.ToString("0.00") + " exceeds " + LowSaveMaxFootY.ToString("0.00"));
+        }
+    }
+
+    private bool TryGetLowSideSaveMinFootY(out float minFootY)
+    {
+        minFootY = float.PositiveInfinity;
+        if (keeperAnimator == null || !keeperAnimator.isHuman)
+        {
+            return false;
+        }
+
+        Transform leftFoot = keeperAnimator.GetBoneTransform(HumanBodyBones.LeftFoot);
+        Transform rightFoot = keeperAnimator.GetBoneTransform(HumanBodyBones.RightFoot);
+        if (leftFoot == null && rightFoot == null)
+        {
+            return false;
+        }
+
+        if (leftFoot != null)
+        {
+            minFootY = Mathf.Min(minFootY, leftFoot.position.y);
+        }
+        if (rightFoot != null)
+        {
+            minFootY = Mathf.Min(minFootY, rightFoot.position.y);
+        }
+
+        return !float.IsPositiveInfinity(minFootY);
     }
 
     private bool TryGetActiveKeeperHandWorld(out Vector3 handWorld)
@@ -2698,6 +2987,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             anticipation = readStep * (1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.18f, 0.34f, t))));
             readDrop = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.01f, 0.2f, t)) * Mathf.PI) * (1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.2f, 0.34f, t))));
         }
+        else if (bottom && side != 0f && keeperCurrentSave)
+        {
+            recover = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.86f, 1f, t));
+            hold = launch * (1f - recover);
+        }
 
         float x = -visualSide * 0.22f * anticipation - visualSide * 0.06f * readDrop - visualSide * 0.12f * coil + visualSide * (top ? 0.78f : middle ? 1.02f : 1.18f) * hold + visualSide * 0.1f * contactPunch;
         float y = -0.26f * anticipation - 0.16f * readDrop - 0.14f * coil + (top ? 0.36f : middle ? 0.16f : -0.34f) * hold + 0.08f * snap;
@@ -2783,7 +3077,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         const float goalMinX = -2.78f;
         const float goalMaxX = 2.78f;
         const float goalMinY = 0.02f;
-        const float goalMaxY = 2.92f;
+        float goalMaxY = MotionKeeperRow == 2 && MotionKeeperCol != 1 ? 3.18f : 2.92f;
         float goalMinZ = keeperStart.z - 1.22f;
         AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
         float goalMaxZ = keeperStart.z + profile.goalMaxZOffset;
@@ -2835,7 +3129,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             TryGetVisibleBounds(keeperVisibleModel, out bounds);
         }
 
-        if (shooting)
+        if (shooting && keeperActionActive)
         {
             CheckClampedKeeperVisibleBounds(bounds, goalMinX, goalMaxX, goalMaxY, goalMinZ, goalMaxZ);
         }
@@ -3322,6 +3616,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         keeperAnimator.enabled = true;
         keeperAnimator.speed = 1f;
         keeperAnimator.runtimeAnimatorController = controller;
+        EnsureKeeperIkDriver();
         keeperAnimator.Rebind();
         keeperAnimator.Update(0f);
     }
@@ -3335,7 +3630,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         keeperAnimator.speed = 0f;
         keeperAnimator.Update(0f);
-        keeperAnimator.enabled = false;
     }
 
     private Vector3 AaKeeperRootTarget(bool saved)
@@ -3469,7 +3763,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 actionDuration = center ? 1.06f : 1.16f,
                 ballDuration = center ? 1.04f : 1.1f,
                 resultHold = center ? 1.98f : 2.16f,
-                poseHoldT = center ? 0.62f : 0.76f,
+                poseHoldT = center ? 0.62f : 0.88f,
                 contactTime = center ? 0.26f : 0.29f,
                 punchWindow = center ? 0.16f : 0.18f,
                 maxHandGap = center ? 0.21f : 0.22f,
@@ -3873,6 +4167,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             ballTrail = ball.gameObject.AddComponent<TrailRenderer>();
         }
 
+        if (!ShowShotYellowEffects)
+        {
+            ballTrail.emitting = false;
+            ballTrail.enabled = false;
+            ballTrail.Clear();
+            return;
+        }
+
         ballTrail.time = 0.58f;
         ballTrail.startWidth = 0.26f;
         ballTrail.endWidth = 0.018f;
@@ -3901,6 +4203,27 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 new GradientAlphaKey(0f, 1f)
             });
         ballTrail.colorGradient = gradient;
+        ballTrail.Clear();
+    }
+
+    private void DisableShotYellowEffectsIfNeeded()
+    {
+        if (ShowShotYellowEffects)
+        {
+            return;
+        }
+
+        shotSpeedLineUntil = 0f;
+        targetLockUntil = 0f;
+        kickFlashUntil = 0f;
+
+        if (ballTrail == null)
+        {
+            return;
+        }
+
+        ballTrail.emitting = false;
+        ballTrail.enabled = false;
         ballTrail.Clear();
     }
 
@@ -3979,7 +4302,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (renderer != null)
         {
             saveImpactMaterial = new Material(Shader.Find("Sprites/Default"));
-            saveImpactMaterial.color = new Color(1f, 0.9f, 0.08f, 0f);
+            saveImpactMaterial.color = new Color(0.64f, 0.9f, 1f, 0f);
             renderer.sharedMaterial = saveImpactMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
@@ -4017,7 +4340,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         saveImpactFlash.localScale = new Vector3(size, size, 1f);
         if (saveImpactMaterial != null)
         {
-            saveImpactMaterial.color = new Color(1f, 0.95f, 0.16f, Mathf.Lerp(0.2f, 0.92f, visible));
+            saveImpactMaterial.color = new Color(0.64f, 0.9f, 1f, Mathf.Lerp(0.16f, 0.78f, visible));
         }
     }
 
@@ -4051,7 +4374,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             saveShockwaveMaterial = new Material(Shader.Find("Sprites/Default"));
             saveShockwaveMaterial.mainTexture = CreateShockwaveTexture();
-            saveShockwaveMaterial.color = new Color(1f, 0.96f, 0.42f, 0f);
+            saveShockwaveMaterial.color = new Color(0.54f, 0.82f, 1f, 0f);
             renderer.sharedMaterial = saveShockwaveMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
@@ -4116,7 +4439,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         saveShockwave.localScale = new Vector3(size, size, 1f);
         if (saveShockwaveMaterial != null)
         {
-            saveShockwaveMaterial.color = new Color(1f, 0.96f, 0.42f, Mathf.Lerp(0.08f, 0.62f, visible));
+            saveShockwaveMaterial.color = new Color(0.54f, 0.82f, 1f, Mathf.Lerp(0.07f, 0.52f, visible));
         }
     }
 
@@ -4150,7 +4473,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (renderer != null)
         {
             saveContactStreakMaterial = new Material(Shader.Find("Sprites/Default"));
-            saveContactStreakMaterial.color = new Color(1f, 0.98f, 0.62f, 0f);
+            saveContactStreakMaterial.color = new Color(0.82f, 0.96f, 1f, 0f);
             renderer.sharedMaterial = saveContactStreakMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
@@ -4189,7 +4512,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         saveContactStreak.localScale = new Vector3(length, thickness, 1f);
         if (saveContactStreakMaterial != null)
         {
-            saveContactStreakMaterial.color = new Color(1f, 0.98f, 0.58f, Mathf.Lerp(0.16f, 0.94f, visible));
+            saveContactStreakMaterial.color = new Color(0.82f, 0.96f, 1f, Mathf.Lerp(0.12f, 0.76f, visible));
         }
     }
 
@@ -4224,7 +4547,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             goalNetImpactMaterial = new Material(Shader.Find("Sprites/Default"));
             goalNetImpactMaterial.mainTexture = CreateShockwaveTexture();
-            goalNetImpactMaterial.color = new Color(1f, 0.88f, 0.18f, 0f);
+            goalNetImpactMaterial.color = new Color(1f, 1f, 1f, 0f);
             renderer.sharedMaterial = goalNetImpactMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
@@ -4258,7 +4581,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         UpdateGoalNetWarp(visible, impactPoint);
         if (goalNetImpactMaterial != null)
         {
-            goalNetImpactMaterial.color = new Color(1f, 0.86f, 0.18f, Mathf.Lerp(0.12f, 0.72f, visible));
+            goalNetImpactMaterial.color = new Color(1f, 1f, 1f, Mathf.Lerp(0.1f, 0.58f, visible));
         }
     }
 
@@ -5298,6 +5621,28 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (scoreText != null)
         {
             scoreText.text = "Goals " + goals + "   Saves " + saves + "   Shots " + shotCount;
+        }
+    }
+}
+
+[DefaultExecutionOrder(10000)]
+public sealed class Bm8KeeperIkDriver : MonoBehaviour
+{
+    internal Bm8PenaltyPrototype owner;
+
+    private void OnAnimatorIK(int layerIndex)
+    {
+        if (owner != null)
+        {
+            owner.HandleKeeperAnimatorIk(layerIndex);
+        }
+    }
+
+    private void LateUpdate()
+    {
+        if (owner != null)
+        {
+            owner.HandleKeeperAnimatorLatePose();
         }
     }
 }
