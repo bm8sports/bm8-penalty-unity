@@ -99,6 +99,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private readonly bool[] shotHistoryGoals = new bool[5];
     private readonly bool[] shotHistoryResolved = new bool[5];
     private bool shooting;
+    private bool keeperCurrentSave;
+    private int keeperActionCol = 1;
+    private int keeperActionRow = 1;
     private int goals;
     private int saves;
     private int shotCount;
@@ -119,6 +122,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private int keeperTestShotTotal;
     private float keeperActionStartedAt;
     private float keeperActionDuration = 1f;
+    private bool keeperSaveGroundLock;
+    private bool keeperSaveContactChecked;
+    private float keeperBestSaveHandGap = float.PositiveInfinity;
     private float shootingStartedRealtime;
     private double shootingStartedWallClock;
     private Vector3 importedKeeperAnchorLocalPosition = new Vector3(0f, 0f, -0.02f);
@@ -157,6 +163,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private float goalLandingGlowStartedAt;
     private float goalLandingGlowUntil;
     private Vector3 goalLandingGlowWorld;
+
+    private int MotionKeeperCol => shooting ? keeperActionCol : keeperCol;
+    private int MotionKeeperRow => shooting ? keeperActionRow : keeperRow;
 
     private void Awake()
     {
@@ -298,6 +307,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (UseAaAnimatedKeeper)
         {
             AnchorImportedKeeperVisibleModel();
+            CheckKeeperSaveRealismContract();
         }
     }
 
@@ -312,7 +322,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             Vector3 leftReady = keeper.TransformPoint(new Vector3(-0.34f, 1.18f, -0.34f));
             Vector3 rightReady = keeper.TransformPoint(new Vector3(0.34f, 1.18f, -0.34f));
-            ApplyKeeperHandIk(leftReady, rightReady, 0.78f);
+            ApplyKeeperHandIk(leftReady, rightReady, 0.42f);
             return;
         }
 
@@ -322,6 +332,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private void ApplyKeeperHandIk(Vector3 leftTarget, Vector3 rightTarget, float weight)
     {
         float clamped = Mathf.Clamp01(weight);
+        leftTarget = ClampKeeperHandIkTarget(HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftHand, leftTarget);
+        rightTarget = ClampKeeperHandIkTarget(HumanBodyBones.RightUpperArm, HumanBodyBones.RightHand, rightTarget);
         keeperAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, clamped);
         keeperAnimator.SetIKRotationWeight(AvatarIKGoal.LeftHand, clamped * 0.55f);
         keeperAnimator.SetIKPosition(AvatarIKGoal.LeftHand, leftTarget);
@@ -331,6 +343,38 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         keeperAnimator.SetIKRotationWeight(AvatarIKGoal.RightHand, clamped * 0.55f);
         keeperAnimator.SetIKPosition(AvatarIKGoal.RightHand, rightTarget);
         keeperAnimator.SetIKRotation(AvatarIKGoal.RightHand, KeeperHandLookRotation(rightTarget));
+    }
+
+    private Vector3 ClampKeeperHandIkTarget(HumanBodyBones upperArmBone, HumanBodyBones handBone, Vector3 target)
+    {
+        if (keeperAnimator == null || !keeperAnimator.isHuman)
+        {
+            return target;
+        }
+
+        Transform upperArm = keeperAnimator.GetBoneTransform(upperArmBone);
+        Transform hand = keeperAnimator.GetBoneTransform(handBone);
+        if (upperArm == null || hand == null)
+        {
+            return target;
+        }
+
+        Vector3 reach = target - upperArm.position;
+        float reachLength = reach.magnitude;
+        if (reachLength <= 0.001f)
+        {
+            return target;
+        }
+
+        AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        float animatedReach = Vector3.Distance(upperArm.position, hand.position);
+        float maxReach = Mathf.Clamp(animatedReach + (MotionKeeperRow == 0 ? 0.08f : 0.06f), 0.48f, profile.maxHandReach);
+        if (reachLength <= maxReach)
+        {
+            return target;
+        }
+
+        return upperArm.position + reach / reachLength * maxReach;
     }
 
     private void ApplyKeeperActionHandIk()
@@ -354,23 +398,25 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        int avatarSide = KeeperAvatarSideForGoalColumn(keeperCol);
-        Vector3 contact = AaKeeperContactWorld() + new Vector3(0f, keeperRow == 0 ? 0.12f : keeperRow == 2 ? -0.04f : 0.02f, -0.04f);
-        float spread = keeperRow == 0 ? 0.13f : keeperRow == 2 ? 0.16f : 0.18f;
-        Vector3 leftTarget = contact + new Vector3(-spread, keeperRow == 0 ? -0.02f : 0f, -0.02f);
-        Vector3 rightTarget = contact + new Vector3(spread, keeperRow == 0 ? -0.02f : 0f, -0.02f);
+        AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        int avatarSide = KeeperAvatarSideForGoalColumn(MotionKeeperCol);
+        Vector3 contact = AimSaveContactWorld();
+        float spread = MotionKeeperRow == 0 ? 0.12f : MotionKeeperRow == 2 ? 0.15f : 0.17f;
+        Vector3 leftTarget = contact + new Vector3(-spread, MotionKeeperRow == 0 ? -0.02f : 0f, -0.02f);
+        Vector3 rightTarget = contact + new Vector3(spread, MotionKeeperRow == 0 ? -0.02f : 0f, -0.02f);
         if (avatarSide < 0)
         {
-            leftTarget = contact + new Vector3(-0.04f, 0.02f, -0.02f);
+            leftTarget = contact;
             rightTarget = contact + new Vector3(0.24f, -0.08f, 0.02f);
         }
         else if (avatarSide > 0)
         {
             leftTarget = contact + new Vector3(-0.24f, -0.08f, 0.02f);
-            rightTarget = contact + new Vector3(0.04f, 0.02f, -0.02f);
+            rightTarget = contact;
         }
 
-        ApplyKeeperHandIk(leftTarget, rightTarget, Mathf.Lerp(0.58f, keeperRow == 0 ? 0.92f : 0.78f, weight));
+        float ikWeight = Mathf.Lerp(profile.handIkMin, profile.handIkMax, weight);
+        ApplyKeeperHandIk(leftTarget, rightTarget, ikWeight);
     }
 
     private Quaternion KeeperHandLookRotation(Vector3 target)
@@ -1284,6 +1330,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         shooting = true;
         ClearKeeperMotionViolation();
+        keeperSaveGroundLock = false;
+        keeperSaveContactChecked = false;
+        keeperBestSaveHandGap = float.PositiveInfinity;
         shootingStartedRealtime = Time.realtimeSinceStartup;
         shootingStartedWallClock = WallClockSeconds();
         ball.position = ballStart;
@@ -1328,15 +1377,20 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         Vector3 keeperTarget = KeeperDiveTarget(keeperCol, keeperRow);
         bool save = forceKeeperTestShot ? forcedKeeperSave : ShouldKeeperSave(power);
+        keeperCurrentSave = save;
+        keeperActionCol = keeperCol;
+        keeperActionRow = keeperRow;
+        AaKeeperMotionProfile aaProfile = CurrentAaKeeperMotionProfile();
         string keeperAction = KeeperActionName(keeperCol, keeperRow);
         SetStatus("Keeper " + keeperAction + " " + GridName(keeperCol, keeperRow));
         saveReboundSide = keeperCol == 1 ? (aimCol == 0 ? -1f : aimCol == 2 ? 1f : UnityEngine.Random.value < 0.5f ? -1f : 1f) : GoalGridSide(keeperCol);
         PlayKeeperDiveAnimation(save);
-        float keeperDuration = save ? keeperRow == 0 ? 1.38f : 1.08f : 0.92f;
+        float keeperDuration = save && UseAaAnimatedKeeper ? aaProfile.actionDuration : save ? keeperRow == 0 ? 1.38f : 1.08f : 0.92f;
         keeperActionStartedAt = Time.time;
         keeperActionDuration = Mathf.Max(0.1f, keeperDuration);
         StartCoroutine(DiveKeeper(keeperTarget, keeperDuration, save));
-        yield return FlyBall(ballStart, target, save, save ? keeperRow == 0 ? 1.22f : 1.08f : 0.9f);
+        float ballDuration = save && UseAaAnimatedKeeper ? aaProfile.ballDuration : save ? keeperRow == 0 ? 1.22f : 1.08f : 0.9f;
+        yield return FlyBall(ballStart, target, save, ballDuration);
 
         shotCount++;
         if (save)
@@ -1365,7 +1419,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             keeper.rotation = Quaternion.identity;
             ResetPose();
         }
-        yield return new WaitForSecondsRealtime(save ? keeperRow == 0 ? 1.65f : 1.35f : 0.9f);
+        float resultHold = save
+            ? Mathf.Max(UseAaAnimatedKeeper ? aaProfile.resultHold : keeperRow == 0 ? 2.25f : 2.05f, resultBannerUntil - Time.time + 0.28f)
+            : 0.9f;
+        yield return new WaitForSecondsRealtime(resultHold);
         yield return ReturnAllToReady(save ? 0.42f : 0.28f);
         SetStatus("Tap goal");
         shooting = false;
@@ -1612,8 +1669,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 kickFlashWorld = ball.position + new Vector3(aimSide * 0.05f, 0.08f, -0.08f);
                 kickFlashUntil = Time.time + 0.18f;
             }
-            cameraRig.position = ReadyCameraPosition() + new Vector3(aimSide * impact * 0.035f, impact * 0.02f, impact * 0.05f);
-            cameraRig.rotation = Quaternion.Euler(6.5f - impact * 0.8f, aimSide * impact * 0.55f, 0f);
+            cameraRig.position = ReadyCameraPosition();
+            cameraRig.rotation = ReadyCameraRotation();
             ball.Rotate(new Vector3(620f, 240f, aimSide * 140f) * Time.deltaTime, Space.World);
             yield return null;
         }
@@ -1631,11 +1688,21 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             Quaternion rotationFrom = Quaternion.identity;
             Quaternion rotationTo = AaKeeperRootRotation(saved);
             float rootHoldT = saved ? 0.82f : 1f;
+            float poseHoldT = saved ? AaSavePoseHoldT() : 1f;
+            bool poseFrozen = false;
             float holdElapsed = 0f;
             while (holdElapsed < duration)
             {
                 holdElapsed += Time.unscaledDeltaTime;
                 float actionT = Mathf.Clamp01(holdElapsed / duration);
+                float poseT = saved ? Mathf.Min(actionT, poseHoldT) : actionT;
+                ApplyImportedKeeperActionOffset(poseT);
+                if (saved && !poseFrozen && actionT >= poseHoldT)
+                {
+                    keeperAnimator.speed = 0f;
+                    keeperAnimator.Update(0f);
+                    poseFrozen = true;
+                }
                 float moveT = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.08f, 0.52f, Mathf.Min(actionT, rootHoldT)));
                 keeper.position = Vector3.Lerp(rootFrom, rootTo, moveT);
                 keeper.rotation = Quaternion.Slerp(rotationFrom, rotationTo, moveT);
@@ -1643,10 +1710,21 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 yield return null;
             }
 
-            ClearImportedKeeperActionOffset();
+            if (saved)
+            {
+                ApplyImportedKeeperActionOffset(poseHoldT);
+            }
+            else
+            {
+                ClearImportedKeeperActionOffset();
+            }
             keeper.position = rootTo;
             keeper.rotation = rotationTo;
+            keeperSaveGroundLock = saved;
             AnchorImportedKeeperVisibleModel();
+            FreezeKeeperActionAnimation();
+            AnchorImportedKeeperVisibleModel();
+            SnapImportedKeeperVisibleModelToGround();
             yield break;
         }
 
@@ -1859,42 +1937,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private IEnumerator ResultCameraPunch(bool saved, float reboundSide, float duration)
     {
-        if (cameraRig == null)
-        {
-            yield break;
-        }
-
-        Vector3 from = cameraRig.position;
-        Quaternion rotationFrom = cameraRig.rotation;
-        float elapsed = 0f;
-        while (elapsed < duration)
-        {
-            elapsed += Time.unscaledDeltaTime;
-            float t = Mathf.Clamp01(elapsed / duration);
-            float punch = Mathf.Sin(t * Mathf.PI);
-            float settle = Mathf.SmoothStep(0f, 1f, t);
-            float shake = Mathf.Sin(t * Mathf.PI * 18f) * punch * (saved ? 0.026f : 0.018f);
-            float side = saved ? reboundSide : Mathf.Sign(Mathf.Abs(aimX) < 0.1f ? reboundSide : aimX);
-
-            Vector3 offset = new Vector3(
-                side * (shake + punch * (saved ? 0.1f : 0.06f)),
-                punch * (saved ? 0.045f : 0.075f),
-                punch * (saved ? 0.22f : 0.36f));
-            cameraRig.position = from + offset;
-            cameraRig.rotation = rotationFrom * Quaternion.Euler(
-                punch * (saved ? -1.15f : -1.75f),
-                side * punch * (saved ? 1.45f : 0.85f),
-                side * punch * (saved ? 0.85f : 0.38f));
-
-            if (settle > 0.86f)
-            {
-                float restore = Mathf.InverseLerp(0.86f, 1f, settle);
-                cameraRig.position = Vector3.Lerp(cameraRig.position, from, restore);
-                cameraRig.rotation = Quaternion.Slerp(cameraRig.rotation, rotationFrom, restore);
-            }
-
-            yield return null;
-        }
+        yield break;
     }
 
     private void ForceReadyReset()
@@ -1926,25 +1969,26 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         float elapsed = 0f;
         float reboundSide = saveReboundSide;
-        bool standingBlockSave = saved && !UseAaAnimatedKeeper && IsStandingBlockRow(keeperRow);
-        Vector3 contact = UseAaAnimatedKeeper ? AaKeeperContactWorld() : standingBlockSave ? StandingBlockContactWorld() : SavePalmWorld();
-        float contactTime = UseAaAnimatedKeeper ? AaContactTime() : 0.32f;
+        int motionCol = MotionKeeperCol;
+        int motionRow = MotionKeeperRow;
+        bool standingBlockSave = saved && !UseAaAnimatedKeeper && IsStandingBlockRow(motionRow);
+        Vector3 contact = UseAaAnimatedKeeper ? AaSaveBallContactWorld(to) : standingBlockSave ? StandingBlockContactWorld() : SavePalmWorld();
+        float contactTime = UseAaAnimatedKeeper ? AaBallContactTime(duration) : 0.32f;
         float loadTime = Mathf.Clamp01(contactTime + (UseAaAnimatedKeeper ? 0.035f : 0.06f));
         float punchTime = Mathf.Clamp01(loadTime + (UseAaAnimatedKeeper ? AaPunchWindow() * 0.86f : 0.24f));
         bool catchAaSave = saved && UseAaAnimatedKeeper && AaUsesCatchSave();
-        if (UseAaAnimatedKeeper && keeperRow == 0)
+        if (UseAaAnimatedKeeper && motionRow == 0)
         {
-            contact += new Vector3(0f, 0.14f, -0.08f);
             loadTime = Mathf.Clamp01(contactTime + 0.08f);
             punchTime = Mathf.Clamp01(loadTime + 0.16f);
         }
         if (catchAaSave)
         {
-            loadTime = Mathf.Clamp01(contactTime + (keeperRow == 0 ? 0.1f : 0.075f));
-            punchTime = Mathf.Clamp01(loadTime + (keeperRow == 0 ? 0.2f : 0.24f));
+            loadTime = Mathf.Clamp01(contactTime + (motionRow == 0 ? 0.1f : 0.075f));
+            punchTime = Mathf.Clamp01(loadTime + (motionRow == 0 ? 0.2f : 0.24f));
         }
         Vector3 palmLoad = contact + (standingBlockSave ? new Vector3(0f, -0.05f, -0.02f) : AaPalmLoadOffset());
-        bool centerAaSave = UseAaAnimatedKeeper && keeperCol == 1;
+        bool centerAaSave = UseAaAnimatedKeeper && motionCol == 1;
         Vector3 deflect = standingBlockSave
             ? new Vector3(
                 Mathf.Clamp(contact.x + reboundSide * UnityEngine.Random.Range(0.65f, 1.1f), -1.65f, 1.65f),
@@ -1959,9 +2003,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         Vector3 drop = catchAaSave
             ? AaCatchDropWorld(deflect, reboundSide)
             : new Vector3(
-                Mathf.Clamp(deflect.x + (centerAaSave ? reboundSide * UnityEngine.Random.Range(0.08f, 0.22f) : reboundSide * UnityEngine.Random.Range(keeperRow == 0 ? 0.7f : 0.38f, keeperRow == 0 ? 1.25f : 0.95f)), -3.8f, 3.8f),
-                keeperRow == 0 ? 0.24f : 0.28f,
-                centerAaSave ? UnityEngine.Random.Range(-2.55f, -2.18f) : UnityEngine.Random.Range(keeperRow == 0 ? -3.65f : -3.25f, keeperRow == 0 ? -2.85f : -2.45f));
+                Mathf.Clamp(deflect.x + (centerAaSave ? reboundSide * UnityEngine.Random.Range(0.08f, 0.22f) : reboundSide * UnityEngine.Random.Range(motionRow == 0 ? 0.7f : 0.38f, motionRow == 0 ? 1.25f : 0.95f)), -3.8f, 3.8f),
+                motionRow == 0 ? 0.24f : 0.28f,
+                centerAaSave ? UnityEngine.Random.Range(-2.55f, -2.18f) : UnityEngine.Random.Range(motionRow == 0 ? -3.65f : -3.25f, motionRow == 0 ? -2.85f : -2.45f));
         float lastT = 0f;
         shotSpeedLineStartedAt = Time.time;
         shotSpeedLineUntil = Time.time + 0.56f;
@@ -1975,6 +2019,23 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / duration);
             if (saved && t >= contactTime && lastT < contactTime)
             {
+                if (UseAaAnimatedKeeper)
+                {
+                    if (TryGetActiveKeeperHandWorld(out Vector3 contactHandWorld))
+                    {
+                        contact = contactHandWorld + AaBallCenterFromHandOffset();
+                        keeperBestSaveHandGap = Mathf.Min(keeperBestSaveHandGap, Vector3.Distance(contact, contactHandWorld));
+                    }
+                    palmLoad = contact + AaPalmLoadOffset();
+                    deflect = catchAaSave ? AaCatchSettleWorld(contact, reboundSide) : AaDeflectWorld(contact, reboundSide);
+                    drop = catchAaSave
+                        ? AaCatchDropWorld(deflect, reboundSide)
+                        : new Vector3(
+                            Mathf.Clamp(deflect.x + (centerAaSave ? reboundSide * UnityEngine.Random.Range(0.08f, 0.22f) : reboundSide * UnityEngine.Random.Range(motionRow == 0 ? 0.7f : 0.38f, motionRow == 0 ? 1.25f : 0.95f)), -3.8f, 3.8f),
+                            motionRow == 0 ? 0.24f : 0.28f,
+                            centerAaSave ? UnityEngine.Random.Range(-2.55f, -2.18f) : UnityEngine.Random.Range(motionRow == 0 ? -3.65f : -3.25f, motionRow == 0 ? -2.85f : -2.45f));
+                }
+
                 saveContactSparkWorld = contact;
                 saveContactSparkStartedAt = Time.time;
                 saveContactSparkUntil = Time.time + 0.34f;
@@ -2006,14 +2067,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 else if (t < punchTime)
                 {
                     float outT = (t - loadTime) / (punchTime - loadTime);
-                    position = Vector3.Lerp(palmLoad, deflect, EaseOut(outT, keeperRow == 0 ? 3.55f : 2.85f));
+                    position = Vector3.Lerp(palmLoad, deflect, EaseOut(outT, motionRow == 0 ? 3.55f : 2.85f));
                     position.y += Mathf.Sin(outT * Mathf.PI) * (UseAaAnimatedKeeper ? AaDeflectArcHeight() : 1.36f);
                 }
                 else
                 {
                     float fallT = (t - punchTime) / (1f - punchTime);
-                    position = Vector3.Lerp(deflect, drop, EaseOut(fallT, keeperRow == 0 ? 1.45f : 1.18f));
-                    position.y += Mathf.Sin(fallT * Mathf.PI) * (keeperRow == 0 ? 0.12f : 0.22f);
+                    position = Vector3.Lerp(deflect, drop, EaseOut(fallT, motionRow == 0 ? 1.45f : 1.18f));
+                    position.y += Mathf.Sin(fallT * Mathf.PI) * (motionRow == 0 ? 0.12f : 0.22f);
                     if (!saveDustTriggered && fallT > 0.56f)
                     {
                         saveDustTriggered = true;
@@ -2050,16 +2111,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             UpdateSaveContactStreak(saved ? presentationImpact : 0f, contact, reboundSide);
             float goalNetImpact = saved ? 0f : Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.72f, 0.98f, t)) * Mathf.PI);
             UpdateGoalNetImpact(goalNetImpact, new Vector3(position.x, position.y, 4.92f), side);
-            float saveSpinBoost = keeperRow == 0 ? 1.22f : 1f;
+            float saveSpinBoost = motionRow == 0 ? 1.22f : 1f;
             ball.Rotate(new Vector3(saved ? 1760f * saveSpinBoost : 920f, saved ? -720f * saveSpinBoost : 260f, side * 220f + reboundSide * (saved ? 620f * saveSpinBoost : 0f)) * Time.unscaledDeltaTime, Space.World);
-            Vector3 cameraBase = ShotCameraPosition(t, presentationImpact, saved, reboundSide);
-            float saveHitShake = saved ? presentationImpact * (keeperRow == 0 ? 0.2f : 0.16f) : 0f;
-            float shake = Mathf.Sin(t * Mathf.PI * 30f) * Mathf.Sin(t * Mathf.PI) * 0.04f + saveHitShake;
-            cameraRig.position = cameraBase + new Vector3(shake * reboundSide, shake * 0.45f, saved ? presentationImpact * 0.13f : 0f);
-            cameraRig.rotation = ShotCameraRotation(t, presentationImpact, reboundSide);
+            cameraRig.position = ReadyCameraPosition();
+            cameraRig.rotation = ReadyCameraRotation();
             yield return null;
         }
 
+        if (saved && UseAaAnimatedKeeper && !float.IsPositiveInfinity(keeperBestSaveHandGap) && keeperBestSaveHandGap > MaxKeeperHandContactGap())
+        {
+            NoteKeeperMotionViolation("contact gap " + keeperBestSaveHandGap.ToString("0.00") + " exceeds " + MaxKeeperHandContactGap().ToString("0.00"));
+        }
         HideSaveImpactFlash();
         HideSaveShockwave();
         HideSaveContactStreak();
@@ -2319,6 +2381,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         keeperVisibleModel.localRotation = importedKeeperAnchorLocalRotation * importedKeeperActionRotationOffset * readyRotation;
         keeperVisibleModel.localScale = importedKeeperAnchorLocalScale;
         ClampImportedKeeperVisibleBounds();
+        if (keeperSaveGroundLock)
+        {
+            SnapImportedKeeperVisibleModelToGround();
+        }
         CheckKeeperRootMotionContract();
     }
 
@@ -2373,10 +2439,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         Vector3 delta = keeper.position - keeperStart;
-        float maxX = keeperRow == 0 ? 0.34f : keeperRow == 1 ? 1.28f : 1.36f;
-        float maxUp = keeperRow == 0 ? 0.2f : keeperRow == 1 ? 0.18f : 0.12f;
-        float maxDown = keeperRow == 2 ? 0.08f : 0.04f;
-        float maxForward = keeperRow == 0 ? 0.16f : keeperRow == 1 ? 0.32f : 0.52f;
+        float maxX = MotionKeeperRow == 0 ? 2.32f : MotionKeeperRow == 1 ? 1.28f : 1.36f;
+        float maxUp = MotionKeeperRow == 0 ? 0.2f : MotionKeeperRow == 1 ? 0.18f : 0.12f;
+        float maxDown = MotionKeeperRow == 2 ? 0.08f : 0.04f;
+        float maxForward = MotionKeeperRow == 0 ? 0.16f : MotionKeeperRow == 1 ? 0.32f : 0.52f;
         float maxBack = 0.14f;
 
         if (Mathf.Abs(delta.x) > maxX)
@@ -2393,14 +2459,225 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
     }
 
+    private void CheckKeeperSaveRealismContract()
+    {
+        if (!shooting || !UseAaAnimatedKeeper || !keeperCurrentSave)
+        {
+            return;
+        }
+
+        float actionT = Mathf.Clamp01((Time.time - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
+        CheckKeeperHandContactContract(actionT);
+        CheckKeeperGroundedSaveHoldContract(actionT);
+    }
+
+    private void CheckKeeperHandContactContract(float actionT)
+    {
+        if (ball == null || keeperAnimator == null)
+        {
+            return;
+        }
+
+        float contactT = AaContactTime();
+        float windowStart = contactT - 0.085f;
+        float windowEnd = contactT + 0.16f;
+        float maxGap = MaxKeeperHandContactGap();
+        if (actionT >= windowStart && actionT <= windowEnd && TryGetActiveKeeperHandWorld(out Vector3 handWorld))
+        {
+            keeperBestSaveHandGap = Mathf.Min(keeperBestSaveHandGap, Vector3.Distance(ball.position, handWorld));
+        }
+
+        if (keeperSaveContactChecked || actionT <= windowEnd)
+        {
+            return;
+        }
+
+        keeperSaveContactChecked = true;
+        if (!float.IsPositiveInfinity(keeperBestSaveHandGap) && keeperBestSaveHandGap > maxGap)
+        {
+            NoteKeeperMotionViolation("contact gap " + keeperBestSaveHandGap.ToString("0.00") + " exceeds " + maxGap.ToString("0.00"));
+        }
+    }
+
+    private float MaxKeeperHandContactGap()
+    {
+        return CurrentAaKeeperMotionProfile().maxHandGap;
+    }
+
+    private float AaSavePoseHoldT()
+    {
+        return CurrentAaKeeperMotionProfile().poseHoldT;
+    }
+
+    private void CheckKeeperGroundedSaveHoldContract(float actionT)
+    {
+        if (actionT < 0.99f || !StatusMessage.StartsWith("SAVED -", System.StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        SnapImportedKeeperVisibleModelToGround();
+        if (keeperVisibleModel == null || !TryGetVisibleBounds(keeperVisibleModel, out Bounds bounds))
+        {
+            return;
+        }
+
+        const float expectedGroundY = 0.02f;
+        const float maxGroundLift = 0.08f;
+        float lift = bounds.min.y - expectedGroundY;
+        if (lift > maxGroundLift)
+        {
+            NoteKeeperMotionViolation("ground lift " + lift.ToString("0.00") + " exceeds " + maxGroundLift.ToString("0.00"));
+        }
+    }
+
+    private bool TryGetActiveKeeperHandWorld(out Vector3 handWorld)
+    {
+        handWorld = Vector3.zero;
+        if (keeperAnimator == null)
+        {
+            return false;
+        }
+
+        int avatarSide = KeeperAvatarSideForGoalColumn(MotionKeeperCol);
+        if (keeperAnimator.isHuman)
+        {
+            Transform leftHand = keeperAnimator.GetBoneTransform(HumanBodyBones.LeftHand);
+            Transform rightHand = keeperAnimator.GetBoneTransform(HumanBodyBones.RightHand);
+            if (MotionKeeperRow == 0 && leftHand != null && rightHand != null)
+            {
+                Vector3 contact = AimSaveContactWorld();
+                handWorld = Vector3.Distance(leftHand.position, contact) <= Vector3.Distance(rightHand.position, contact)
+                    ? leftHand.position
+                    : rightHand.position;
+                return true;
+            }
+
+            if (avatarSide < 0 && leftHand != null)
+            {
+                handWorld = leftHand.position;
+                return true;
+            }
+
+            if (avatarSide > 0 && rightHand != null)
+            {
+                handWorld = rightHand.position;
+                return true;
+            }
+
+            if (leftHand != null && rightHand != null)
+            {
+                handWorld = Vector3.Lerp(leftHand.position, rightHand.position, 0.5f);
+                return true;
+            }
+
+            Transform availableHand = leftHand != null ? leftHand : rightHand;
+            if (availableHand != null)
+            {
+                handWorld = availableHand.position;
+                return true;
+            }
+        }
+
+        if (avatarSide < 0 && TryFindNamedKeeperHand(false, out handWorld))
+        {
+            return true;
+        }
+
+        if (avatarSide > 0 && TryFindNamedKeeperHand(true, out handWorld))
+        {
+            return true;
+        }
+
+        bool hasLeft = TryFindNamedKeeperHand(false, out Vector3 leftNamedHand);
+        bool hasRight = TryFindNamedKeeperHand(true, out Vector3 rightNamedHand);
+        if (MotionKeeperRow == 0 && hasLeft && hasRight)
+        {
+            Vector3 contact = AimSaveContactWorld();
+            handWorld = Vector3.Distance(leftNamedHand, contact) <= Vector3.Distance(rightNamedHand, contact)
+                ? leftNamedHand
+                : rightNamedHand;
+            return true;
+        }
+
+        if (hasLeft && hasRight)
+        {
+            handWorld = Vector3.Lerp(leftNamedHand, rightNamedHand, 0.5f);
+            return true;
+        }
+
+        if (hasLeft || hasRight)
+        {
+            handWorld = hasLeft ? leftNamedHand : rightNamedHand;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryFindNamedKeeperHand(bool rightSide, out Vector3 handWorld)
+    {
+        handWorld = Vector3.zero;
+        Transform searchRoot = keeperVisibleModel != null ? keeperVisibleModel : keeperAnimator != null ? keeperAnimator.transform : null;
+        if (searchRoot != null && TryFindNamedKeeperHandInRoot(searchRoot, rightSide, out handWorld))
+        {
+            return true;
+        }
+
+        return keeper != null && TryFindNamedKeeperHandInRoot(keeper, rightSide, out handWorld);
+    }
+
+    private bool TryFindNamedKeeperHandInRoot(Transform searchRoot, bool rightSide, out Vector3 handWorld)
+    {
+        handWorld = Vector3.zero;
+        Transform best = null;
+        Transform[] bones = searchRoot.GetComponentsInChildren<Transform>(true);
+        string fullSide = rightSide ? "right" : "left";
+        string sideLetter = rightSide ? "r" : "l";
+        string sideMarker = "_" + sideLetter;
+        string dottedSideMarker = "." + sideLetter;
+        for (int i = 0; i < bones.Length; i++)
+        {
+            string lower = bones[i].name.ToLowerInvariant();
+            bool handLike = lower.Contains("hand") || lower.Contains("wrist");
+            if (!handLike)
+            {
+                continue;
+            }
+
+            bool sideMatch = lower.Contains(fullSide)
+                || lower.Contains(sideMarker)
+                || lower.EndsWith(dottedSideMarker, System.StringComparison.Ordinal)
+                || lower.Contains(" " + sideLetter + " ");
+            if (!sideMatch)
+            {
+                continue;
+            }
+
+            best = bones[i];
+            if (lower.Contains("hand"))
+            {
+                break;
+            }
+        }
+
+        if (best == null)
+        {
+            return false;
+        }
+
+        handWorld = best.position;
+        return true;
+    }
+
     private void ApplyImportedKeeperActionOffset(float t)
     {
         importedKeeperActionT = Mathf.Clamp01(t);
-        float side = GoalGridSide(keeperCol);
+        float side = GoalGridSide(MotionKeeperCol);
         float visualSide = side;
-        bool top = keeperRow == 0;
-        bool middle = keeperRow == 1;
-        bool bottom = keeperRow == 2;
+        bool top = MotionKeeperRow == 0;
+        bool middle = MotionKeeperRow == 1;
+        bool bottom = MotionKeeperRow == 2;
 
         float coil = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0f, 0.2f, t)) * Mathf.PI);
         float launch = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.1f, 0.43f, t));
@@ -2451,7 +2728,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void PoseImportedKeeperTopTipHands()
     {
-        if (!shooting || keeperRow != 0 || keeperAnimator == null || !keeperAnimator.isHuman)
+        if (!shooting || MotionKeeperRow != 0 || keeperAnimator == null || !keeperAnimator.isHuman)
         {
             return;
         }
@@ -2471,10 +2748,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        int avatarSide = KeeperAvatarSideForGoalColumn(keeperCol);
-        Vector3 contact = AaKeeperContactWorld() + new Vector3(0f, 0.16f, -0.08f);
-        Vector3 leftTarget = contact + new Vector3(avatarSide < 0 ? -0.04f : -0.22f, avatarSide < 0 ? 0.02f : -0.06f, -0.02f);
-        Vector3 rightTarget = contact + new Vector3(avatarSide > 0 ? 0.04f : 0.22f, avatarSide > 0 ? 0.02f : -0.06f, -0.02f);
+        int avatarSide = KeeperAvatarSideForGoalColumn(MotionKeeperCol);
+        Vector3 contact = AimSaveContactWorld();
+        Vector3 leftTarget = contact + new Vector3(avatarSide < 0 ? 0f : -0.24f, avatarSide < 0 ? 0f : -0.08f, avatarSide < 0 ? 0f : 0.02f);
+        Vector3 rightTarget = contact + new Vector3(avatarSide > 0 ? 0f : 0.24f, avatarSide > 0 ? 0f : -0.08f, avatarSide > 0 ? 0f : 0.02f);
         if (avatarSide == 0)
         {
             leftTarget = contact + new Vector3(-0.16f, 0f, -0.02f);
@@ -2508,7 +2785,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         const float goalMinY = 0.02f;
         const float goalMaxY = 2.92f;
         float goalMinZ = keeperStart.z - 1.22f;
-        float goalMaxZ = keeperStart.z + 0.82f;
+        AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        float goalMaxZ = keeperStart.z + profile.goalMaxZOffset;
 
         if (bounds.min.x < goalMinX)
         {
@@ -2540,8 +2818,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         Vector3 centerLocal = keeper.InverseTransformPoint(bounds.center);
         float centerDriftX = centerLocal.x - importedKeeperReadyBoundsCenterLocal.x;
         float centerDriftY = centerLocal.y - importedKeeperReadyBoundsCenterLocal.y;
-        float maxCenterDriftX = shooting && keeperRow == 0 ? 0.72f : 2.2f;
-        float maxCenterDriftY = shooting && keeperRow == 0 ? 0.62f : 1.35f;
+        float maxCenterDriftX = profile.maxCenterDriftX;
+        float maxCenterDriftY = profile.maxCenterDriftY;
         if (Mathf.Abs(centerDriftX) > maxCenterDriftX)
         {
             correction.x -= Mathf.Sign(centerDriftX) * (Mathf.Abs(centerDriftX) - maxCenterDriftX);
@@ -2563,9 +2841,26 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
     }
 
+    private void SnapImportedKeeperVisibleModelToGround()
+    {
+        if (keeperVisibleModel == null || !TryGetVisibleBounds(keeperVisibleModel, out Bounds bounds))
+        {
+            return;
+        }
+
+        const float groundY = 0.02f;
+        float correctionY = groundY - bounds.min.y;
+        if (Mathf.Abs(correctionY) <= 0.002f)
+        {
+            return;
+        }
+
+        keeperVisibleModel.position += new Vector3(0f, correctionY, 0f);
+    }
+
     private void CheckClampedKeeperVisibleBounds(Bounds bounds, float goalMinX, float goalMaxX, float goalMaxY, float goalMinZ, float goalMaxZ)
     {
-        const float residual = 0.06f;
+        const float residual = 0.08f;
         if (bounds.min.x < goalMinX - residual)
         {
             NoteKeeperMotionViolation("visible min x " + bounds.min.x.ToString("0.00") + " beyond " + goalMinX.ToString("0.00"));
@@ -3024,32 +3319,35 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
+        keeperAnimator.enabled = true;
         keeperAnimator.speed = 1f;
         keeperAnimator.runtimeAnimatorController = controller;
         keeperAnimator.Rebind();
         keeperAnimator.Update(0f);
     }
 
+    private void FreezeKeeperActionAnimation()
+    {
+        if (!UseAaAnimatedKeeper || keeperAnimator == null)
+        {
+            return;
+        }
+
+        keeperAnimator.speed = 0f;
+        keeperAnimator.Update(0f);
+        keeperAnimator.enabled = false;
+    }
+
     private Vector3 AaKeeperRootTarget(bool saved)
     {
         if (!saved)
         {
-            float missSide = GoalGridSide(keeperCol) * 0.42f;
+            float missSide = GoalGridSide(MotionKeeperCol) * 0.42f;
             return keeperStart + new Vector3(missSide, 0f, -0.08f);
         }
 
-        float side = GoalGridSide(keeperCol);
-        if (keeperRow == 0)
-        {
-            return keeperStart + new Vector3(side * 0.16f, 0.02f, -0.04f);
-        }
-
-        if (keeperRow == 2)
-        {
-            return keeperStart + new Vector3(side * 1.08f, 0f, -0.38f);
-        }
-
-        return keeperStart + new Vector3(side * 1.16f, side == 0f ? 0.02f : 0.12f, -0.22f);
+        AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        return keeperStart + new Vector3(GoalGridSide(MotionKeeperCol) * profile.rootSide, 0f, profile.rootZ);
     }
 
     private Quaternion AaKeeperRootRotation(bool saved)
@@ -3059,18 +3357,143 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return Quaternion.identity;
         }
 
-        float side = GoalGridSide(keeperCol);
-        if (keeperRow == 0)
-        {
-            return Quaternion.Euler(-1f, side * 2f, -side * 1.5f);
-        }
+        AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        return Quaternion.Euler(profile.rootPitch, profile.rootYawSide * GoalGridSide(MotionKeeperCol), profile.rootRollSide * GoalGridSide(MotionKeeperCol));
+    }
 
-        if (keeperRow == 2)
-        {
-            return Quaternion.Euler(4f, side * 9f, -side * 12f);
-        }
+    private AaKeeperMotionProfile CurrentAaKeeperMotionProfile()
+    {
+        return AaKeeperMotionProfile.For(MotionKeeperCol, MotionKeeperRow);
+    }
 
-        return Quaternion.Euler(-2f, side * 10f, -side * 16f);
+    private struct AaKeeperMotionProfile
+    {
+        public float actionDuration;
+        public float ballDuration;
+        public float resultHold;
+        public float poseHoldT;
+        public float contactTime;
+        public float punchWindow;
+        public float maxHandGap;
+        public float maxHandReach;
+        public float handIkMin;
+        public float handIkMax;
+        public float shotArc;
+        public float deflectArc;
+        public float rootSide;
+        public float rootZ;
+        public float rootPitch;
+        public float rootYawSide;
+        public float rootRollSide;
+        public float goalMaxZOffset;
+        public float maxCenterDriftX;
+        public float maxCenterDriftY;
+        public float keeperContactXScale;
+        public float keeperContactYAdd;
+        public float keeperContactZOffset;
+        public float ballContactZ;
+        public float ballContactYAdd;
+        public float ballCenterYFromHand;
+
+        public static AaKeeperMotionProfile For(int col, int row)
+        {
+            bool center = col == 1;
+            if (row == 0)
+            {
+                return new AaKeeperMotionProfile
+                {
+                    actionDuration = center ? 1.34f : 1.42f,
+                    ballDuration = center ? 1.16f : 1.24f,
+                    resultHold = center ? 2.14f : 2.32f,
+                    poseHoldT = center ? 0.66f : 0.78f,
+                    contactTime = center ? 0.3f : 0.35f,
+                    punchWindow = center ? 0.15f : 0.18f,
+                    maxHandGap = center ? 0.24f : 0.26f,
+                    maxHandReach = center ? 0.68f : 0.72f,
+                    handIkMin = 0.28f,
+                    handIkMax = center ? 0.42f : 0.46f,
+                    shotArc = 0.5f,
+                    deflectArc = center ? 0.42f : 0.46f,
+                    rootSide = center ? 0f : 1.78f,
+                    rootZ = center ? -0.14f : -0.08f,
+                    rootPitch = -1f,
+                    rootYawSide = 2f,
+                    rootRollSide = -1.5f,
+                    goalMaxZOffset = 0.82f,
+                    maxCenterDriftX = 2.58f,
+                    maxCenterDriftY = 0.62f,
+                    keeperContactXScale = center ? 0.12f : 0.68f,
+                    keeperContactYAdd = center ? 0.42f : 0.48f,
+                    keeperContactZOffset = -0.86f,
+                    ballContactZ = 4.74f,
+                    ballContactYAdd = 0.14f,
+                    ballCenterYFromHand = 0.03f
+                };
+            }
+
+            if (row == 1)
+            {
+                return new AaKeeperMotionProfile
+                {
+                    actionDuration = center ? 1.02f : 1.1f,
+                    ballDuration = 1.08f,
+                    resultHold = center ? 1.96f : 2.08f,
+                    poseHoldT = center ? 0.6f : 0.72f,
+                    contactTime = center ? 0.27f : 0.31f,
+                    punchWindow = center ? 0.13f : 0.17f,
+                    maxHandGap = center ? 0.22f : 0.23f,
+                    maxHandReach = center ? 0.64f : 0.68f,
+                    handIkMin = 0.52f,
+                    handIkMax = center ? 0.68f : 0.72f,
+                    shotArc = 0.34f,
+                    deflectArc = center ? 0.72f : 0.92f,
+                    rootSide = center ? 0f : 1.04f,
+                    rootZ = center ? -0.3f : -0.22f,
+                    rootPitch = -2f,
+                    rootYawSide = 10f,
+                    rootRollSide = -16f,
+                    goalMaxZOffset = 0.86f,
+                    maxCenterDriftX = 2.2f,
+                    maxCenterDriftY = 1.35f,
+                    keeperContactXScale = center ? 0.12f : 0.82f,
+                    keeperContactYAdd = center ? 0.28f : 0.06f,
+                    keeperContactZOffset = -0.86f,
+                    ballContactZ = 4.66f,
+                    ballContactYAdd = 0f,
+                    ballCenterYFromHand = 0.015f
+                };
+            }
+
+            return new AaKeeperMotionProfile
+            {
+                actionDuration = center ? 1.06f : 1.16f,
+                ballDuration = center ? 1.04f : 1.1f,
+                resultHold = center ? 1.98f : 2.16f,
+                poseHoldT = center ? 0.62f : 0.76f,
+                contactTime = center ? 0.26f : 0.29f,
+                punchWindow = center ? 0.16f : 0.18f,
+                maxHandGap = center ? 0.21f : 0.22f,
+                maxHandReach = center ? 0.62f : 0.68f,
+                handIkMin = 0.5f,
+                handIkMax = center ? 0.66f : 0.72f,
+                shotArc = 0.18f,
+                deflectArc = center ? 0.28f : 0.34f,
+                rootSide = center ? 0f : 0.94f,
+                rootZ = center ? -0.46f : -0.34f,
+                rootPitch = 4f,
+                rootYawSide = 9f,
+                rootRollSide = -12f,
+                goalMaxZOffset = 1.02f,
+                maxCenterDriftX = 2.2f,
+                maxCenterDriftY = 1.35f,
+                keeperContactXScale = center ? 0.12f : 0.74f,
+                keeperContactYAdd = center ? 0.04f : -0.06f,
+                keeperContactZOffset = -0.72f,
+                ballContactZ = 4.58f,
+                ballContactYAdd = 0f,
+                ballCenterYFromHand = 0.015f
+            };
+        }
     }
 
     private struct KeeperSaveProfile
@@ -3590,7 +4013,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
         }
 
-        float size = Mathf.Lerp(0.24f, keeperRow == 0 ? 0.88f : 0.68f, visible);
+        float size = Mathf.Lerp(0.24f, MotionKeeperRow == 0 ? 0.88f : 0.68f, visible);
         saveImpactFlash.localScale = new Vector3(size, size, 1f);
         if (saveImpactMaterial != null)
         {
@@ -3689,7 +4112,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
         }
 
-        float size = Mathf.Lerp(0.6f, keeperRow == 0 ? 1.72f : 1.42f, 1f - visible * 0.28f);
+        float size = Mathf.Lerp(0.6f, MotionKeeperRow == 0 ? 1.72f : 1.42f, 1f - visible * 0.28f);
         saveShockwave.localScale = new Vector3(size, size, 1f);
         if (saveShockwaveMaterial != null)
         {
@@ -3751,7 +4174,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         saveContactStreak.gameObject.SetActive(true);
-        saveContactStreak.position = contact + new Vector3(reboundSide * 0.15f, keeperRow == 0 ? 0.05f : 0.02f, -0.14f);
+        saveContactStreak.position = contact + new Vector3(reboundSide * 0.15f, MotionKeeperRow == 0 ? 0.05f : 0.02f, -0.14f);
         if (cameraRig != null)
         {
             Vector3 toCamera = saveContactStreak.position - cameraRig.position;
@@ -3761,8 +4184,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
         }
 
-        float length = Mathf.Lerp(0.36f, keeperRow == 0 ? 1.28f : 1.04f, visible);
-        float thickness = Mathf.Lerp(0.045f, keeperRow == 0 ? 0.13f : 0.105f, visible);
+        float length = Mathf.Lerp(0.36f, MotionKeeperRow == 0 ? 1.28f : 1.04f, visible);
+        float thickness = Mathf.Lerp(0.045f, MotionKeeperRow == 0 ? 0.13f : 0.105f, visible);
         saveContactStreak.localScale = new Vector3(length, thickness, 1f);
         if (saveContactStreakMaterial != null)
         {
@@ -4462,80 +4885,107 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return humanoidPalm;
         }
 
-        float x = GridX(keeperCol) * (keeperCol == 1 ? 0.24f : 0.98f);
-        float y = GridY(keeperRow) + (keeperRow == 0 ? 0.34f : keeperRow == 1 ? 0.1f : -0.1f);
-        float z = keeperRow == 0 ? 3.56f : keeperRow == 1 ? 3.7f : 3.86f;
+        float x = GridX(MotionKeeperCol) * (MotionKeeperCol == 1 ? 0.24f : 0.98f);
+        float y = GridY(MotionKeeperRow) + (MotionKeeperRow == 0 ? 0.34f : MotionKeeperRow == 1 ? 0.1f : -0.1f);
+        float z = MotionKeeperRow == 0 ? 3.56f : MotionKeeperRow == 1 ? 3.7f : 3.86f;
         return new Vector3(x, y, z);
     }
 
     private Vector3 AaKeeperContactWorld()
     {
-        float xScale = keeperCol == 1 ? 0.12f : keeperRow == 0 ? 0.68f : keeperRow == 2 ? 0.74f : 0.82f;
-        float x = GridX(keeperCol) * xScale;
-        float centerLift = keeperCol == 1 ? keeperRow == 1 ? 0.22f : keeperRow == 2 ? 0.1f : 0f : 0f;
-        float y = GridY(keeperRow) + (keeperRow == 0 ? 0.42f : keeperRow == 1 ? 0.06f : -0.06f) + centerLift;
-        float z = keeperStart.z - (keeperRow == 2 ? 0.72f : 0.86f);
+        AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        float x = GridX(MotionKeeperCol) * profile.keeperContactXScale;
+        float y = GridY(MotionKeeperRow) + profile.keeperContactYAdd;
+        float z = keeperStart.z + profile.keeperContactZOffset;
         return new Vector3(x, y, z);
+    }
+
+    private Vector3 AaKeeperHandContactWorld()
+    {
+        AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        return AaKeeperContactWorld() + new Vector3(0f, profile.ballContactYAdd, -0.04f);
+    }
+
+    private Vector3 AimSaveContactWorld()
+    {
+        float power = powerSlider != null ? powerSlider.value : 0.75f;
+        Vector3 shotTarget = new Vector3(aimX, Mathf.Clamp(aimY + power * 0.25f, 0.85f, 2.42f), 5.15f);
+        return AaSaveBallContactWorld(shotTarget);
+    }
+
+    private Vector3 AaShotSaveContactWorld(Vector3 shotTarget)
+    {
+        AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        return new Vector3(shotTarget.x, shotTarget.y, profile.ballContactZ);
+    }
+
+    private Vector3 AaSaveBallContactWorld(Vector3 shotTarget)
+    {
+        Vector3 contact = AaShotSaveContactWorld(shotTarget);
+        AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        return contact + new Vector3(0f, profile.ballContactYAdd, MotionKeeperRow == 0 ? -0.08f : 0f);
+    }
+
+    private Vector3 AaLiveHandContactWorld(Vector3 fallback)
+    {
+        if (!TryGetActiveKeeperHandWorld(out Vector3 handWorld))
+        {
+            return fallback;
+        }
+
+        return handWorld + AaBallCenterFromHandOffset();
+    }
+
+    private Vector3 AaBallCenterFromHandOffset()
+    {
+        AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        return new Vector3(0f, profile.ballCenterYFromHand, -0.045f);
     }
 
     private float AaContactTime()
     {
-        if (keeperRow == 0)
-        {
-            return keeperCol == 1 ? 0.3f : 0.35f;
-        }
+        return CurrentAaKeeperMotionProfile().contactTime;
+    }
 
-        if (keeperRow == 2)
-        {
-            return keeperCol == 1 ? 0.26f : 0.29f;
-        }
-
-        return keeperCol == 1 ? 0.27f : 0.31f;
+    private float AaBallContactTime(float ballDuration)
+    {
+        float keeperContactSeconds = AaContactTime() * Mathf.Max(0.1f, keeperActionDuration);
+        return Mathf.Clamp01(keeperContactSeconds / Mathf.Max(0.1f, ballDuration));
     }
 
     private float AaPunchWindow()
     {
-        if (keeperRow == 0)
-        {
-            return keeperCol == 1 ? 0.15f : 0.18f;
-        }
-
-        if (keeperRow == 2)
-        {
-            return keeperCol == 1 ? 0.16f : 0.18f;
-        }
-
-        return keeperCol == 1 ? 0.13f : 0.17f;
+        return CurrentAaKeeperMotionProfile().punchWindow;
     }
 
     private Vector3 AaPalmLoadOffset()
     {
-        float side = keeperCol == 1 ? saveReboundSide : GoalGridSide(keeperCol);
-        if (keeperRow == 0)
+        float side = MotionKeeperCol == 1 ? saveReboundSide : GoalGridSide(MotionKeeperCol);
+        if (MotionKeeperRow == 0)
         {
             return new Vector3(side * 0.035f, 0.015f, -0.055f);
         }
 
-        float y = keeperRow == 0 ? -0.06f : keeperRow == 2 ? -0.025f : -0.04f;
+        float y = MotionKeeperRow == 2 ? -0.025f : -0.04f;
         return new Vector3(-side * 0.08f, y, -0.06f);
     }
 
     private Vector3 AaDeflectWorld(Vector3 contact, float reboundSide)
     {
-        if (keeperCol == 1)
+        if (MotionKeeperCol == 1)
         {
             float sideNudge = reboundSide * UnityEngine.Random.Range(0.18f, 0.38f);
-            float upNudge = keeperRow == 0 ? UnityEngine.Random.Range(0.28f, 0.44f) : keeperRow == 2 ? UnityEngine.Random.Range(0.04f, 0.16f) : UnityEngine.Random.Range(0.1f, 0.24f);
-            float zNudge = keeperRow == 0 ? UnityEngine.Random.Range(-1.1f, -0.82f) : UnityEngine.Random.Range(-0.86f, -0.58f);
+            float upNudge = MotionKeeperRow == 0 ? UnityEngine.Random.Range(0.28f, 0.44f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(0.04f, 0.16f) : UnityEngine.Random.Range(0.1f, 0.24f);
+            float zNudge = MotionKeeperRow == 0 ? UnityEngine.Random.Range(-1.1f, -0.82f) : UnityEngine.Random.Range(-0.86f, -0.58f);
             return new Vector3(
                 Mathf.Clamp(contact.x + sideNudge, -0.64f, 0.64f),
                 Mathf.Clamp(contact.y + upNudge, 0.72f, 3.55f),
                 contact.z + zNudge);
         }
 
-        float sidePush = keeperRow == 0 ? UnityEngine.Random.Range(1.65f, 2.18f) : keeperRow == 2 ? UnityEngine.Random.Range(2.15f, 2.85f) : UnityEngine.Random.Range(2.55f, 3.35f);
-        float upPush = keeperRow == 0 ? UnityEngine.Random.Range(0.36f, 0.62f) : keeperRow == 2 ? UnityEngine.Random.Range(0.22f, 0.5f) : UnityEngine.Random.Range(0.72f, 1.08f);
-        float zPush = keeperRow == 0 ? UnityEngine.Random.Range(-3.95f, -3.25f) : keeperRow == 2 ? UnityEngine.Random.Range(-3.45f, -2.85f) : UnityEngine.Random.Range(-3.7f, -2.8f);
+        float sidePush = MotionKeeperRow == 0 ? UnityEngine.Random.Range(1.65f, 2.18f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(2.15f, 2.85f) : UnityEngine.Random.Range(2.55f, 3.35f);
+        float upPush = MotionKeeperRow == 0 ? UnityEngine.Random.Range(0.36f, 0.62f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(0.22f, 0.5f) : UnityEngine.Random.Range(0.72f, 1.08f);
+        float zPush = MotionKeeperRow == 0 ? UnityEngine.Random.Range(-3.95f, -3.25f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(-3.45f, -2.85f) : UnityEngine.Random.Range(-3.7f, -2.8f);
         return new Vector3(
             Mathf.Clamp(contact.x + reboundSide * sidePush, -3.75f, 3.75f),
             Mathf.Clamp(contact.y + upPush, 0.72f, 3.55f),
@@ -4544,15 +4994,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private bool AaUsesCatchSave()
     {
-        return keeperRow != 0 || keeperCol == 1;
+        return MotionKeeperRow != 0 || MotionKeeperCol == 1;
     }
 
     private Vector3 AaCatchSettleWorld(Vector3 contact, float reboundSide)
     {
-        float side = keeperCol == 1 ? reboundSide : GoalGridSide(keeperCol);
-        float sideNudge = keeperCol == 1 ? side * UnityEngine.Random.Range(0.04f, 0.12f) : side * UnityEngine.Random.Range(0.1f, 0.24f);
-        float yDrop = keeperRow == 0 ? UnityEngine.Random.Range(-0.04f, 0.04f) : keeperRow == 2 ? UnityEngine.Random.Range(-0.14f, -0.06f) : UnityEngine.Random.Range(-0.08f, 0.02f);
-        float zPull = keeperRow == 0 ? UnityEngine.Random.Range(-0.22f, -0.12f) : UnityEngine.Random.Range(-0.34f, -0.18f);
+        float side = MotionKeeperCol == 1 ? reboundSide : GoalGridSide(MotionKeeperCol);
+        float sideNudge = MotionKeeperCol == 1 ? side * UnityEngine.Random.Range(0.04f, 0.12f) : side * UnityEngine.Random.Range(0.1f, 0.24f);
+        float yDrop = MotionKeeperRow == 0 ? UnityEngine.Random.Range(-0.04f, 0.04f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(-0.14f, -0.06f) : UnityEngine.Random.Range(-0.08f, 0.02f);
+        float zPull = MotionKeeperRow == 0 ? UnityEngine.Random.Range(-0.22f, -0.12f) : UnityEngine.Random.Range(-0.34f, -0.18f);
         return new Vector3(
             Mathf.Clamp(contact.x + sideNudge, -1.55f, 1.55f),
             Mathf.Clamp(contact.y + yDrop, 0.72f, 3.55f),
@@ -4561,10 +5011,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private Vector3 AaCatchDropWorld(Vector3 caught, float reboundSide)
     {
-        float side = keeperCol == 1 ? reboundSide : GoalGridSide(keeperCol);
+        float side = MotionKeeperCol == 1 ? reboundSide : GoalGridSide(MotionKeeperCol);
         return new Vector3(
             Mathf.Clamp(caught.x + side * UnityEngine.Random.Range(0.04f, 0.16f), -1.8f, 1.8f),
-            keeperRow == 0 ? 0.3f : 0.24f,
+            MotionKeeperRow == 0 ? 0.3f : 0.24f,
             caught.z + UnityEngine.Random.Range(-0.46f, -0.26f));
     }
 
@@ -4575,32 +5025,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return saved ? 0.74f : 1.36f;
         }
 
-        if (keeperRow == 0)
-        {
-            return 0.5f;
-        }
-
-        if (keeperRow == 2)
-        {
-            return 0.18f;
-        }
-
-        return 0.34f;
+        return CurrentAaKeeperMotionProfile().shotArc;
     }
 
     private float AaDeflectArcHeight()
     {
-        if (keeperRow == 0)
-        {
-            return 0.46f;
-        }
-
-        if (keeperRow == 2)
-        {
-            return 0.34f;
-        }
-
-        return 1.05f;
+        return CurrentAaKeeperMotionProfile().deflectArc;
     }
 
     private Vector3 StandingBlockContactWorld()
@@ -4625,7 +5055,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return false;
         }
 
-        int avatarSide = KeeperAvatarSideForGoalColumn(keeperCol);
+        int avatarSide = KeeperAvatarSideForGoalColumn(MotionKeeperCol);
         if (avatarSide < 0 && leftHand != null)
         {
             palm = leftHand.position;
@@ -4643,7 +5073,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             palm = leftHand != null ? leftHand.position : rightHand.position;
         }
 
-        palm += new Vector3(0f, keeperRow == 0 ? 0.1f : keeperRow == 2 ? -0.06f : 0.02f, -0.06f);
+        palm += new Vector3(0f, MotionKeeperRow == 0 ? 0.1f : MotionKeeperRow == 2 ? -0.06f : 0.02f, -0.06f);
         return true;
     }
 
@@ -4700,6 +5130,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void ResetPose()
     {
+        keeperSaveGroundLock = false;
+        keeperSaveContactChecked = false;
+        keeperBestSaveHandGap = float.PositiveInfinity;
         SetLocalRotation(strikerLeftLeg, 0f, 0f, 0f);
         SetLocalRotation(strikerRightLeg, 0f, 0f, 0f);
         SetLocalRotation(strikerLeftArm, 0f, 0f, 0f);

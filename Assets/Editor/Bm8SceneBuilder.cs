@@ -239,6 +239,7 @@ public static class Bm8SceneBuilder
         private const double StartDelaySeconds = 0.35d;
         private const double FullGridTimeoutSeconds = 90d;
         private const double TopGridTimeoutSeconds = 45d;
+        private const double KeeperActionFreezeGraceSeconds = 0.58d;
 
         private enum RunnerState
         {
@@ -252,6 +253,7 @@ public static class Bm8SceneBuilder
         private static RunnerState state = RunnerState.Idle;
         private static Bm8PenaltyPrototype prototype;
         private static double stageStartedAt;
+        private static double savedStatusStartedAt = -1d;
 
         static KeeperRuntimeTestRunner()
         {
@@ -266,12 +268,14 @@ public static class Bm8SceneBuilder
                 state = RunnerState.WaitForScene;
                 stageStartedAt = EditorApplication.timeSinceStartup;
                 prototype = null;
+                savedStatusStartedAt = -1d;
             }
 
             if (change == PlayModeStateChange.EnteredEditMode && !EditorPrefs.GetBool(RuntimeTestRequestKey, false))
             {
                 state = RunnerState.Idle;
                 prototype = null;
+                savedStatusStartedAt = -1d;
             }
         }
 
@@ -286,6 +290,7 @@ public static class Bm8SceneBuilder
             {
                 state = RunnerState.WaitForScene;
                 stageStartedAt = EditorApplication.timeSinceStartup;
+                savedStatusStartedAt = -1d;
             }
 
             if (state == RunnerState.WaitForScene)
@@ -296,6 +301,7 @@ public static class Bm8SceneBuilder
                     Time.timeScale = 1f;
                     state = RunnerState.WaitForReady;
                     stageStartedAt = EditorApplication.timeSinceStartup;
+                    savedStatusStartedAt = -1d;
                     Debug.Log("BM8 keeper runtime test: scene ready; waiting for game startup.");
                     return;
                 }
@@ -315,6 +321,7 @@ public static class Bm8SceneBuilder
                     prototype.RunKeeperZoneTest();
                     state = RunnerState.WaitForFullGrid;
                     stageStartedAt = EditorApplication.timeSinceStartup;
+                    savedStatusStartedAt = -1d;
                     Debug.Log("BM8 keeper runtime test: running TEST 9.");
                     return;
                 }
@@ -334,7 +341,13 @@ public static class Bm8SceneBuilder
                     prototype.RunTopKeeperZoneTest();
                     state = RunnerState.WaitForTopGrid;
                     stageStartedAt = EditorApplication.timeSinceStartup;
+                    savedStatusStartedAt = -1d;
                     Debug.Log("BM8 keeper runtime test: TEST 9 complete; running TEST TOP.");
+                    return;
+                }
+
+                if (KeeperActionRepeatingAfterSave("TEST 9"))
+                {
                     return;
                 }
 
@@ -361,6 +374,12 @@ public static class Bm8SceneBuilder
                     EditorApplication.isPlaying = false;
                     state = RunnerState.Idle;
                     prototype = null;
+                    savedStatusStartedAt = -1d;
+                    return;
+                }
+
+                if (KeeperActionRepeatingAfterSave("TEST TOP"))
+                {
                     return;
                 }
 
@@ -375,6 +394,37 @@ public static class Bm8SceneBuilder
                     FailRuntimeTest("TEST TOP did not complete within " + TopGridTimeoutSeconds + " seconds. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName() + ". Motion: " + CurrentKeeperMotionViolation());
                 }
             }
+        }
+
+        private static bool KeeperActionRepeatingAfterSave(string label)
+        {
+            if (!StatusContains("SAVED -"))
+            {
+                savedStatusStartedAt = -1d;
+                return false;
+            }
+
+            if (savedStatusStartedAt < 0d)
+            {
+                savedStatusStartedAt = EditorApplication.timeSinceStartup;
+                return false;
+            }
+
+            if (EditorApplication.timeSinceStartup - savedStatusStartedAt <= KeeperActionFreezeGraceSeconds)
+            {
+                return false;
+            }
+
+            Animator animator = CurrentKeeperAnimator();
+            float speed = animator != null ? animator.speed : 0f;
+            bool enabled = animator != null && animator.enabled;
+            if (!enabled || speed <= 0.01f)
+            {
+                return false;
+            }
+
+            FailRuntimeTest(label + " keeper action repeated after save. Status: " + CurrentStatusText() + ". Controller: " + CurrentKeeperControllerName() + ". Animator speed: " + speed.ToString("0.00") + ". Animator enabled: " + enabled);
+            return true;
         }
 
         private static bool StatusContains(string value)
@@ -402,7 +452,7 @@ public static class Bm8SceneBuilder
                 return prototype.StatusMessage;
             }
 
-            Text[] texts = Object.FindObjectsByType<Text>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            Text[] texts = Object.FindObjectsByType<Text>(FindObjectsInactive.Include);
             for (int i = 0; i < texts.Length; i++)
             {
                 if (texts[i].name == "Status")
@@ -434,6 +484,22 @@ public static class Bm8SceneBuilder
             return prototype.KeeperMotionViolationMessage;
         }
 
+        private static Animator CurrentKeeperAnimator()
+        {
+            if (prototype == null)
+            {
+                return null;
+            }
+
+            FieldInfo animatorField = typeof(Bm8PenaltyPrototype).GetField("keeperAnimator", BindingFlags.Instance | BindingFlags.NonPublic);
+            if (animatorField == null)
+            {
+                return null;
+            }
+
+            return animatorField.GetValue(prototype) as Animator;
+        }
+
         private static double ElapsedSeconds()
         {
             return EditorApplication.timeSinceStartup - stageStartedAt;
@@ -446,6 +512,7 @@ public static class Bm8SceneBuilder
             EditorApplication.isPlaying = false;
             state = RunnerState.Idle;
             prototype = null;
+            savedStatusStartedAt = -1d;
         }
     }
 
