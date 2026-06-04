@@ -901,8 +901,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float cellWidth = goalRect.width / 3f;
         float cellHeight = goalRect.height / 3f;
         float pulse = Mathf.Sin(Time.time * 3.2f) * 0.5f + 0.5f;
-        Color line = new Color(1f, 0.86f, 0.18f, Mathf.Lerp(0.08f, 0.18f, pulse));
-        Color selected = new Color(1f, 0.92f, 0.18f, Mathf.Lerp(0.06f, 0.14f, pulse));
+        Color line = new Color(0.52f, 0.86f, 1f, Mathf.Lerp(0.06f, 0.14f, pulse));
+        Color selected = new Color(0.52f, 0.86f, 1f, Mathf.Lerp(0.045f, 0.11f, pulse));
         Rect selectedCell = new Rect(goalRect.x + aimCol * cellWidth, goalRect.y + aimRow * cellHeight, cellWidth, cellHeight);
         FillGuiRect(new Rect(selectedCell.x + 4f, selectedCell.y + 4f, selectedCell.width - 8f, selectedCell.height - 8f), selected);
 
@@ -931,7 +931,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float pulse = Mathf.Sin(Time.time * (shooting ? 10f : 4f)) * 0.5f + 0.5f;
         float thickness = Mathf.Lerp(3f, 7f, pulse) * active;
         float alpha = Mathf.Lerp(0.16f, 0.54f, pulse) * active;
-        Color color = new Color(1f, 0.92f, 0.18f, alpha);
+        Color color = new Color(0.58f, 0.88f, 1f, alpha * 0.82f);
         Rect outer = new Rect(goalRect.x - 5f, goalRect.y - 5f, goalRect.width + 10f, goalRect.height + 10f);
         FillGuiRect(new Rect(outer.x, outer.y, outer.width, thickness), color);
         FillGuiRect(new Rect(outer.x, outer.yMax - thickness, outer.width, thickness), color);
@@ -955,8 +955,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float pulse = Mathf.Sin(Time.time * 4.6f) * 0.5f + 0.5f;
         Vector2 center = new Vector2(screen.x, Screen.height - screen.y);
         float size = Mathf.Lerp(44f, 78f, pulse);
-        Color ring = new Color(1f, 0.88f, 0.18f, Mathf.Lerp(0.14f, 0.34f, pulse));
-        Color glow = new Color(1f, 0.2f, 0.1f, Mathf.Lerp(0.04f, 0.14f, pulse));
+        Color ring = new Color(0.64f, 0.9f, 1f, Mathf.Lerp(0.1f, 0.26f, pulse));
+        Color glow = new Color(0.18f, 0.72f, 1f, Mathf.Lerp(0.035f, 0.12f, pulse));
         FillGuiRect(new Rect(center.x - size * 0.5f, center.y - size * 0.11f, size, size * 0.22f), glow);
         FillGuiRect(new Rect(center.x - size * 0.5f, center.y - size * 0.5f, size, 3f), ring);
         FillGuiRect(new Rect(center.x - size * 0.5f, center.y + size * 0.5f - 3f, size, 3f), ring);
@@ -982,7 +982,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         Vector2 from = new Vector2(ballScreen.x, Screen.height - ballScreen.y);
         Vector2 to = new Vector2(goalRect.x + (aimCol + 0.5f) * cellWidth, goalRect.y + (aimRow + 0.5f) * cellHeight);
         float pulse = Mathf.Sin(Time.time * 5.5f) * 0.5f + 0.5f;
-        Color color = new Color(1f, 0.86f, 0.16f, Mathf.Lerp(0.1f, 0.28f, pulse));
+        Color color = new Color(0.7f, 0.92f, 1f, Mathf.Lerp(0.08f, 0.22f, pulse));
         for (int i = 1; i <= 9; i++)
         {
             float t = i / 10f;
