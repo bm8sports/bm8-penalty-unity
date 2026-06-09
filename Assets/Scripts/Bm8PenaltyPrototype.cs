@@ -2173,7 +2173,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             {
                 float shotT = EaseOut(t, 2.15f);
                 position = Vector3.Lerp(from, to, shotT);
-                position.x += Mathf.Sin(t * Mathf.PI) * side * 0.32f;
                 position.y += Mathf.Sin(t * Mathf.PI) * 1.36f;
                 if (!goalLandingGlowTriggered && t >= 0.82f)
                 {
