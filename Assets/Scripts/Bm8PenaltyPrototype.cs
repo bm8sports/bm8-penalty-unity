@@ -17,10 +17,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private const float LowSaveFootGroundY = 0.02f;
     private const float LowSaveFootBoneHoldY = 0.025f;
     private const float LowSaveMaxFootY = 0.08f;
-    private const float LowSaveSoftGroundStartT = 0.82f;
-    private const float LowSaveHardGroundStartT = 0.95f;
-    private const float LowSaveFootPinStartT = 0.86f;
-    private const float LowSaveFootPinFullT = 0.995f;
+    private const float LowSaveSoftGroundStartT = 0.68f;
+    private const float LowSaveHardGroundStartT = 0.84f;
+    private const float LowSaveFootPinStartT = 0.72f;
+    private const float LowSaveFootPinFullT = 0.9f;
     private const float ShotWatchdogSeconds = 14f;
     private const double ShotWatchdogWallSeconds = 14d;
     private const float KeeperTestShotTimeoutSeconds = 15f;
@@ -417,7 +417,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
         float animatedReach = Vector3.Distance(upperArm.position, hand.position);
-        float maxReach = Mathf.Clamp(animatedReach + (MotionKeeperRow == 0 ? 0.08f : 0.06f), 0.48f, profile.maxHandReach);
+        float maxReach = Mathf.Clamp(animatedReach + (MotionKeeperRow == 0 ? 0.035f : 0.025f), 0.48f, profile.maxHandReach);
         if (reachLength <= maxReach)
         {
             return target;
@@ -464,7 +464,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             rightTarget = contact;
         }
 
-        float ikWeight = Mathf.Lerp(profile.handIkMin, profile.handIkMax, weight);
+        float maxAssist = MotionKeeperRow == 0 ? 0.3f : MotionKeeperRow == 2 ? 0.2f : 0.24f;
+        float ikWeight = Mathf.Lerp(0f, Mathf.Min(profile.handIkMax, maxAssist), weight);
         ApplyKeeperHandIk(leftTarget, rightTarget, ikWeight);
     }
 
@@ -2694,9 +2695,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
+        if (!TryGetLowSideLandingFoot(out HumanBodyBones landingBone, out _))
+        {
+            return;
+        }
+
+        HumanBodyBones trailingBone = landingBone == HumanBodyBones.LeftFoot ? HumanBodyBones.RightFoot : HumanBodyBones.LeftFoot;
         float weight = Smooth(Mathf.Clamp01(Mathf.InverseLerp(LowSaveFootPinStartT, LowSaveFootPinFullT, actionT)));
-        PinLowSideSaveFootBone(HumanBodyBones.LeftFoot, weight);
-        PinLowSideSaveFootBone(HumanBodyBones.RightFoot, weight);
+        PinLowSideSaveFootBone(landingBone, weight);
+        PinLowSideSaveFootBone(trailingBone, weight * 0.28f);
     }
 
     private void PinLowSideSaveFootBone(HumanBodyBones bone, float weight)
@@ -2721,15 +2728,22 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         float actionT = Mathf.Clamp01((Time.time - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
-        float pinWeight = Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.78f, 0.98f, actionT)));
+        float pinWeight = Smooth(Mathf.Clamp01(Mathf.InverseLerp(LowSaveFootPinStartT, LowSaveFootPinFullT, actionT)));
         if (pinWeight <= 0.001f)
         {
             ClearKeeperFootIk();
             return;
         }
 
-        ApplyKeeperFootIkGoal(AvatarIKGoal.LeftFoot, pinWeight);
-        ApplyKeeperFootIkGoal(AvatarIKGoal.RightFoot, pinWeight);
+        if (!TryGetLowSideLandingFoot(out _, out AvatarIKGoal landingGoal))
+        {
+            ClearKeeperFootIk();
+            return;
+        }
+
+        AvatarIKGoal trailingGoal = landingGoal == AvatarIKGoal.LeftFoot ? AvatarIKGoal.RightFoot : AvatarIKGoal.LeftFoot;
+        ApplyKeeperFootIkGoal(landingGoal, pinWeight);
+        ApplyKeeperFootIkGoal(trailingGoal, pinWeight * 0.28f);
     }
 
     private bool ShouldPinLowSideSaveFeet()
@@ -2759,6 +2773,34 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         keeperAnimator.SetIKRotationWeight(goal, Mathf.Clamp01(weight) * 0.45f);
         keeperAnimator.SetIKPosition(goal, position);
         keeperAnimator.SetIKRotation(goal, foot.rotation);
+    }
+
+    private bool TryGetLowSideLandingFoot(out HumanBodyBones landingBone, out AvatarIKGoal landingGoal)
+    {
+        landingBone = HumanBodyBones.LeftFoot;
+        landingGoal = AvatarIKGoal.LeftFoot;
+        if (keeperAnimator == null || !keeperAnimator.isHuman)
+        {
+            return false;
+        }
+
+        Transform leftFoot = keeperAnimator.GetBoneTransform(HumanBodyBones.LeftFoot);
+        Transform rightFoot = keeperAnimator.GetBoneTransform(HumanBodyBones.RightFoot);
+        if (leftFoot == null && rightFoot == null)
+        {
+            return false;
+        }
+
+        if (rightFoot == null || leftFoot != null && leftFoot.position.y <= rightFoot.position.y)
+        {
+            landingBone = HumanBodyBones.LeftFoot;
+            landingGoal = AvatarIKGoal.LeftFoot;
+            return true;
+        }
+
+        landingBone = HumanBodyBones.RightFoot;
+        landingGoal = AvatarIKGoal.RightFoot;
+        return true;
     }
 
     private void ClearKeeperFootIk()
