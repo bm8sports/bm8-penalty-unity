@@ -891,38 +891,67 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         float active = shooting ? 0.78f : 1f;
-        Color cellFill = new Color(0.12f, 0.48f, 0.72f, 0.085f * active);
-        Color line = new Color(0.72f, 0.94f, 1f, Mathf.Lerp(0.22f, 0.38f, pulse) * active);
-        Color selected = new Color(0.58f, 0.9f, 1f, Mathf.Lerp(0.16f, 0.3f, pulse) * active);
-        Color selectedBorder = new Color(0.9f, 1f, 1f, Mathf.Lerp(0.54f, 0.88f, pulse) * active);
-        Rect selectedCell = new Rect(goalRect.x + aimCol * cellWidth, goalRect.y + aimRow * cellHeight, cellWidth, cellHeight);
-        for (int row = 0; row < 3; row++)
-        {
-            for (int col = 0; col < 3; col++)
-            {
-                Rect cell = new Rect(goalRect.x + col * cellWidth, goalRect.y + row * cellHeight, cellWidth, cellHeight);
-                FillGuiRect(new Rect(cell.x + 5f, cell.y + 5f, cell.width - 10f, cell.height - 10f), cellFill);
-            }
-        }
-
-        FillGuiRect(new Rect(selectedCell.x + 4f, selectedCell.y + 4f, selectedCell.width - 8f, selectedCell.height - 8f), selected);
+        Color line = new Color(0.78f, 0.95f, 1f, Mathf.Lerp(0.14f, 0.26f, pulse) * active);
 
         for (int i = 1; i < 3; i++)
         {
             float x = goalRect.x + cellWidth * i;
             float y = goalRect.y + cellHeight * i;
-            FillGuiRect(new Rect(x - 1.6f, goalRect.y, 3.2f, goalRect.height), line);
-            FillGuiRect(new Rect(goalRect.x, y - 1.6f, goalRect.width, 3.2f), line);
+            FillGuiRect(new Rect(x - 1f, goalRect.y, 2f, goalRect.height), line);
+            FillGuiRect(new Rect(goalRect.x, y - 1f, goalRect.width, 2f), line);
         }
 
-        FillGuiRect(new Rect(goalRect.x, goalRect.y, goalRect.width, 3f), line);
-        FillGuiRect(new Rect(goalRect.x, goalRect.yMax - 3f, goalRect.width, 3f), line);
-        FillGuiRect(new Rect(goalRect.x, goalRect.y, 3f, goalRect.height), line);
-        FillGuiRect(new Rect(goalRect.xMax - 3f, goalRect.y, 3f, goalRect.height), line);
-        FillGuiRect(new Rect(selectedCell.x, selectedCell.y, selectedCell.width, 4f), selectedBorder);
-        FillGuiRect(new Rect(selectedCell.x, selectedCell.yMax - 4f, selectedCell.width, 4f), selectedBorder);
-        FillGuiRect(new Rect(selectedCell.x, selectedCell.y, 4f, selectedCell.height), selectedBorder);
-        FillGuiRect(new Rect(selectedCell.xMax - 4f, selectedCell.y, 4f, selectedCell.height), selectedBorder);
+        FillGuiRect(new Rect(goalRect.x, goalRect.y, goalRect.width, 2f), line);
+        FillGuiRect(new Rect(goalRect.x, goalRect.yMax - 2f, goalRect.width, 2f), line);
+        FillGuiRect(new Rect(goalRect.x, goalRect.y, 2f, goalRect.height), line);
+        FillGuiRect(new Rect(goalRect.xMax - 2f, goalRect.y, 2f, goalRect.height), line);
+
+        for (int row = 0; row < 3; row++)
+        {
+            for (int col = 0; col < 3; col++)
+            {
+                Rect cell = new Rect(goalRect.x + col * cellWidth, goalRect.y + row * cellHeight, cellWidth, cellHeight);
+                DrawAimingBallMarker(cell, col == aimCol && row == aimRow, pulse, active);
+            }
+        }
+    }
+
+    private static void DrawAimingBallMarker(Rect cell, bool selected, float pulse, float active)
+    {
+        Vector2 center = new Vector2(cell.x + cell.width * 0.5f, cell.y + cell.height * 0.5f);
+        float baseSize = Mathf.Clamp(Mathf.Min(cell.width, cell.height) * (selected ? 0.46f : 0.3f), 18f, selected ? 42f : 28f);
+        float size = selected ? baseSize + Mathf.Lerp(1.5f, 5f, pulse) : baseSize;
+        if (selected)
+        {
+            float glow = size * Mathf.Lerp(1.55f, 1.95f, pulse);
+            FillGuiRect(new Rect(center.x - glow * 0.5f, center.y - glow * 0.16f, glow, glow * 0.32f), new Color(0.42f, 0.86f, 1f, Mathf.Lerp(0.12f, 0.28f, pulse) * active));
+            FillGuiRect(new Rect(center.x - glow * 0.16f, center.y - glow * 0.5f, glow * 0.32f, glow), new Color(0.42f, 0.86f, 1f, Mathf.Lerp(0.08f, 0.2f, pulse) * active));
+        }
+
+        Color shadow = new Color(0f, 0f, 0f, (selected ? 0.24f : 0.14f) * active);
+        FillGuiRect(new Rect(center.x - size * 0.45f, center.y + size * 0.4f, size * 0.9f, size * 0.16f), shadow);
+
+        int slices = 7;
+        for (int i = 0; i < slices; i++)
+        {
+            float sliceT = slices == 1 ? 0.5f : i / (float)(slices - 1);
+            float y = Mathf.Lerp(-0.5f, 0.5f, sliceT);
+            float sliceWidth = Mathf.Sqrt(Mathf.Clamp01(1f - y * y * 4f)) * size;
+            float sliceHeight = size / slices + 1f;
+            Color white = selected ? new Color(0.98f, 1f, 1f, 0.96f * active) : new Color(0.9f, 0.96f, 1f, 0.78f * active);
+            FillGuiRect(new Rect(center.x - sliceWidth * 0.5f, center.y + y * size - sliceHeight * 0.5f, sliceWidth, sliceHeight), white);
+        }
+
+        Color seam = new Color(0.08f, 0.1f, 0.12f, (selected ? 0.82f : 0.56f) * active);
+        float patch = size * 0.18f;
+        FillGuiRect(new Rect(center.x - patch * 0.5f, center.y - patch * 0.5f, patch, patch), seam);
+        FillGuiRect(new Rect(center.x - size * 0.34f, center.y - size * 0.2f, patch * 0.75f, patch * 0.75f), seam);
+        FillGuiRect(new Rect(center.x + size * 0.18f, center.y - size * 0.24f, patch * 0.75f, patch * 0.75f), seam);
+        FillGuiRect(new Rect(center.x - size * 0.24f, center.y + size * 0.18f, patch * 0.75f, patch * 0.75f), seam);
+        FillGuiRect(new Rect(center.x + size * 0.2f, center.y + size * 0.16f, patch * 0.75f, patch * 0.75f), seam);
+
+        Color highlight = selected ? new Color(1f, 1f, 1f, 0.34f * active) : new Color(1f, 1f, 1f, 0.18f * active);
+        FillGuiRect(new Rect(center.x - size * 0.24f, center.y - size * 0.36f, size * 0.34f, size * 0.08f), highlight);
     }
 
     private void DrawGoalFramePulse()
@@ -5036,17 +5065,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         buttonObject.transform.SetParent(parent, false);
 
         Image image = buttonObject.AddComponent<Image>();
-        image.color = new Color(0.12f, 0.48f, 0.72f, 0.1f);
+        image.color = new Color(0.12f, 0.48f, 0.72f, 0.015f);
 
         Outline outline = buttonObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.72f, 0.94f, 1f, 0.42f);
+        outline.effectColor = new Color(0.72f, 0.94f, 1f, 0.08f);
         outline.effectDistance = new Vector2(1.4f, -1.4f);
 
         Button button = buttonObject.AddComponent<Button>();
         ColorBlock colors = button.colors;
-        colors.normalColor = new Color(0.12f, 0.48f, 0.72f, 0.1f);
-        colors.highlightedColor = new Color(0.62f, 0.9f, 1f, 0.26f);
-        colors.pressedColor = new Color(0.82f, 0.96f, 1f, 0.46f);
+        colors.normalColor = new Color(0.12f, 0.48f, 0.72f, 0.015f);
+        colors.highlightedColor = new Color(0.62f, 0.9f, 1f, 0.12f);
+        colors.pressedColor = new Color(0.82f, 0.96f, 1f, 0.22f);
         colors.selectedColor = colors.highlightedColor;
         button.colors = colors;
 
