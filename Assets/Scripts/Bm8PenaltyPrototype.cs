@@ -1767,16 +1767,16 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             Quaternion rotationFrom = Quaternion.identity;
             Quaternion rotationTo = AaKeeperRootRotation(saved);
             float rootHoldT = saved ? 0.82f : 1f;
-            float poseHoldT = saved ? AaSavePoseHoldT() : 1f;
+            float poseHoldT = saved ? AaSavePoseHoldT() : AaMissPoseHoldT();
             bool poseFrozen = false;
             float holdElapsed = 0f;
             while (holdElapsed < duration)
             {
                 holdElapsed += Time.unscaledDeltaTime;
                 float actionT = Mathf.Clamp01(holdElapsed / duration);
-                float poseT = saved ? Mathf.Min(actionT, poseHoldT) : actionT;
+                float poseT = Mathf.Min(actionT, poseHoldT);
                 ApplyImportedKeeperActionOffset(poseT);
-                if (saved && !poseFrozen && actionT >= poseHoldT)
+                if (!poseFrozen && actionT >= poseHoldT)
                 {
                     keeperAnimator.speed = 0f;
                     keeperAnimator.Update(0f);
@@ -1789,14 +1789,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 yield return null;
             }
 
-            if (saved)
-            {
-                ApplyImportedKeeperActionOffset(poseHoldT);
-            }
-            else
-            {
-                ClearImportedKeeperActionOffset();
-            }
+            ApplyImportedKeeperActionOffset(poseHoldT);
             keeper.position = rootTo;
             keeper.rotation = rotationTo;
             keeperSaveGroundLock = saved;
@@ -2588,6 +2581,16 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private float AaSavePoseHoldT()
     {
         return CurrentAaKeeperMotionProfile().poseHoldT;
+    }
+
+    private float AaMissPoseHoldT()
+    {
+        if (MotionKeeperCol == 1)
+        {
+            return 0.94f;
+        }
+
+        return MotionKeeperRow == 0 ? 0.76f : MotionKeeperRow == 1 ? 0.72f : 0.78f;
     }
 
     private void CheckKeeperGroundedSaveHoldContract(float actionT)
