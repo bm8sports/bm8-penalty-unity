@@ -2089,10 +2089,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 UnityEngine.Random.Range(-3.45f, -2.35f));
         Vector3 drop = catchAaSave
             ? AaCatchDropWorld(deflect, reboundSide)
-            : new Vector3(
-                Mathf.Clamp(deflect.x + (centerAaSave ? reboundSide * UnityEngine.Random.Range(0.08f, 0.22f) : reboundSide * UnityEngine.Random.Range(motionRow == 0 ? 0.7f : 0.38f, motionRow == 0 ? 1.25f : 0.95f)), -3.8f, 3.8f),
-                motionRow == 0 ? 0.24f : 0.28f,
-                centerAaSave ? UnityEngine.Random.Range(-2.55f, -2.18f) : UnityEngine.Random.Range(motionRow == 0 ? -3.65f : -3.25f, motionRow == 0 ? -2.85f : -2.45f));
+            : AaDeflectDropWorld(deflect, reboundSide);
         float lastT = 0f;
         if (ShowShotYellowEffects)
         {
@@ -2120,10 +2117,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     deflect = catchAaSave ? AaCatchSettleWorld(contact, reboundSide) : AaDeflectWorld(contact, reboundSide);
                     drop = catchAaSave
                         ? AaCatchDropWorld(deflect, reboundSide)
-                        : new Vector3(
-                            Mathf.Clamp(deflect.x + (centerAaSave ? reboundSide * UnityEngine.Random.Range(0.08f, 0.22f) : reboundSide * UnityEngine.Random.Range(motionRow == 0 ? 0.7f : 0.38f, motionRow == 0 ? 1.25f : 0.95f)), -3.8f, 3.8f),
-                            motionRow == 0 ? 0.24f : 0.28f,
-                            centerAaSave ? UnityEngine.Random.Range(-2.55f, -2.18f) : UnityEngine.Random.Range(motionRow == 0 ? -3.65f : -3.25f, motionRow == 0 ? -2.85f : -2.45f));
+                        : AaDeflectDropWorld(deflect, reboundSide);
                 }
 
                 saveContactSparkWorld = contact;
@@ -2191,6 +2185,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
 
             ball.position = position;
+            if (saved && catchAaSave)
+            {
+                ball.position = ClampAaCatchBallToHand(ball.position, t, contactTime);
+            }
+
             UpdateBallShadow();
             float contactFlash = saved ? Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(contactTime - 0.025f, punchTime, t)) * Mathf.PI) : 0f;
             float impactBurst = saved ? Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(contactTime - 0.015f, contactTime + 0.1f, t)) * Mathf.PI) : 0f;
@@ -5360,13 +5359,38 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 contact.z + zNudge);
         }
 
-        float sidePush = MotionKeeperRow == 0 ? UnityEngine.Random.Range(1.65f, 2.18f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(2.15f, 2.85f) : UnityEngine.Random.Range(2.55f, 3.35f);
-        float upPush = MotionKeeperRow == 0 ? UnityEngine.Random.Range(0.36f, 0.62f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(0.22f, 0.5f) : UnityEngine.Random.Range(0.72f, 1.08f);
-        float zPush = MotionKeeperRow == 0 ? UnityEngine.Random.Range(-3.95f, -3.25f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(-3.45f, -2.85f) : UnityEngine.Random.Range(-3.7f, -2.8f);
+        if (MotionKeeperRow == 0)
+        {
+            return new Vector3(
+                Mathf.Clamp(contact.x + reboundSide * 1.05f, -3.15f, 3.15f),
+                Mathf.Clamp(contact.y + 0.22f, 1.05f, 3.2f),
+                contact.z - 1.02f);
+        }
+
+        float sidePush = MotionKeeperRow == 2 ? UnityEngine.Random.Range(2.15f, 2.85f) : UnityEngine.Random.Range(2.55f, 3.35f);
+        float upPush = MotionKeeperRow == 2 ? UnityEngine.Random.Range(0.22f, 0.5f) : UnityEngine.Random.Range(0.72f, 1.08f);
+        float zPush = MotionKeeperRow == 2 ? UnityEngine.Random.Range(-3.45f, -2.85f) : UnityEngine.Random.Range(-3.7f, -2.8f);
         return new Vector3(
             Mathf.Clamp(contact.x + reboundSide * sidePush, -3.75f, 3.75f),
             Mathf.Clamp(contact.y + upPush, 0.72f, 3.55f),
             zPush);
+    }
+
+    private Vector3 AaDeflectDropWorld(Vector3 deflect, float reboundSide)
+    {
+        bool center = MotionKeeperCol == 1;
+        if (!center && MotionKeeperRow == 0)
+        {
+            return new Vector3(
+                Mathf.Clamp(deflect.x + reboundSide * 0.1f, -3.25f, 3.25f),
+                0.3f,
+                deflect.z - 0.22f);
+        }
+
+        return new Vector3(
+            Mathf.Clamp(deflect.x + (center ? reboundSide * UnityEngine.Random.Range(0.08f, 0.22f) : reboundSide * UnityEngine.Random.Range(MotionKeeperRow == 2 ? 0.38f : 0.48f, MotionKeeperRow == 2 ? 0.95f : 1.05f)), -3.8f, 3.8f),
+            MotionKeeperRow == 0 ? 0.24f : 0.28f,
+            center ? UnityEngine.Random.Range(-2.55f, -2.18f) : UnityEngine.Random.Range(MotionKeeperRow == 2 ? -3.25f : -2.85f, MotionKeeperRow == 2 ? -2.45f : -2.35f));
     }
 
     private bool AaUsesCatchSave()
@@ -5377,6 +5401,16 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Vector3 AaCatchSettleWorld(Vector3 contact, float reboundSide)
     {
         float side = MotionKeeperCol == 1 ? reboundSide : GoalGridSide(MotionKeeperCol);
+        if (MotionKeeperCol != 1)
+        {
+            float yDrop = MotionKeeperRow == 2 ? -0.08f : -0.035f;
+            float zPull = MotionKeeperRow == 2 ? -0.1f : -0.14f;
+            return new Vector3(
+                Mathf.Clamp(contact.x + side * 0.035f, -1.65f, 1.65f),
+                Mathf.Clamp(contact.y + yDrop, 0.56f, 3.55f),
+                contact.z + zPull);
+        }
+
         float sideNudge = MotionKeeperCol == 1 ? side * UnityEngine.Random.Range(0.04f, 0.12f) : side * UnityEngine.Random.Range(0.1f, 0.24f);
         float yDrop = MotionKeeperRow == 0 ? UnityEngine.Random.Range(-0.04f, 0.04f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(-0.14f, -0.06f) : UnityEngine.Random.Range(-0.08f, 0.02f);
         float zPull = MotionKeeperRow == 0 ? UnityEngine.Random.Range(-0.22f, -0.12f) : UnityEngine.Random.Range(-0.34f, -0.18f);
@@ -5389,10 +5423,38 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Vector3 AaCatchDropWorld(Vector3 caught, float reboundSide)
     {
         float side = MotionKeeperCol == 1 ? reboundSide : GoalGridSide(MotionKeeperCol);
+        if (MotionKeeperCol != 1)
+        {
+            return new Vector3(
+                caught.x,
+                MotionKeeperRow == 2 ? 0.24f : 0.62f,
+                caught.z - (MotionKeeperRow == 2 ? 0.08f : 0.12f));
+        }
+
         return new Vector3(
             Mathf.Clamp(caught.x + side * UnityEngine.Random.Range(0.04f, 0.16f), -1.8f, 1.8f),
             MotionKeeperRow == 0 ? 0.3f : 0.24f,
             caught.z + UnityEngine.Random.Range(-0.46f, -0.26f));
+    }
+
+    private Vector3 ClampAaCatchBallToHand(Vector3 plannedPosition, float t, float contactTime)
+    {
+        if (!UseAaAnimatedKeeper || MotionKeeperRow == 0 || !TryGetActiveKeeperHandWorld(out Vector3 handWorld))
+        {
+            return plannedPosition;
+        }
+
+        Vector3 handBall = handWorld + AaBallCenterFromHandOffset();
+        float follow = Mathf.Clamp01(Mathf.InverseLerp(contactTime, Mathf.Min(0.98f, contactTime + 0.22f), t));
+        float maxGap = MotionKeeperCol == 1 ? 0.24f : MotionKeeperRow == 2 ? 0.13f : 0.16f;
+        Vector3 delta = plannedPosition - handBall;
+        if (delta.magnitude > maxGap)
+        {
+            plannedPosition = handBall + delta.normalized * maxGap;
+        }
+
+        float followWeight = MotionKeeperCol == 1 ? Mathf.Lerp(0.35f, 0.62f, follow) : Mathf.Lerp(0.72f, 0.94f, follow);
+        return Vector3.Lerp(plannedPosition, handBall, followWeight);
     }
 
     private float AaShotArcHeight(bool saved)
