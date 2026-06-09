@@ -5403,12 +5403,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float side = MotionKeeperCol == 1 ? reboundSide : GoalGridSide(MotionKeeperCol);
         if (MotionKeeperCol != 1)
         {
-            float yDrop = MotionKeeperRow == 2 ? -0.08f : -0.035f;
-            float zPull = MotionKeeperRow == 2 ? -0.1f : -0.14f;
+            float sideYDrop = MotionKeeperRow == 2 ? -0.08f : -0.035f;
+            float sideZPull = MotionKeeperRow == 2 ? -0.1f : -0.14f;
             return new Vector3(
                 Mathf.Clamp(contact.x + side * 0.035f, -1.65f, 1.65f),
-                Mathf.Clamp(contact.y + yDrop, 0.56f, 3.55f),
-                contact.z + zPull);
+                Mathf.Clamp(contact.y + sideYDrop, 0.56f, 3.55f),
+                contact.z + sideZPull);
         }
 
         float sideNudge = MotionKeeperCol == 1 ? side * UnityEngine.Random.Range(0.04f, 0.12f) : side * UnityEngine.Random.Range(0.1f, 0.24f);
