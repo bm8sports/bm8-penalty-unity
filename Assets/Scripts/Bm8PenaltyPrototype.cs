@@ -531,8 +531,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float height = Screen.height;
         float topPad = Mathf.Max(8f, height * 0.018f);
         float topBarHeight = Mathf.Clamp(height * 0.16f, 74f, 108f);
-        float bottomBarHeight = Mathf.Clamp(height * 0.11f, 62f, 84f);
-        float bottomBarY = height - bottomBarHeight - Mathf.Max(16f, height * 0.045f);
         GUIStyle title = new GUIStyle(GUI.skin.label)
         {
             alignment = TextAnchor.MiddleCenter,
@@ -590,21 +588,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             GUI.Label(new Rect(x - 15f, chipY + 12f, 44f, 18f), chips[i], selectedChip ? panelText : small);
         }
 
-        Rect bottom = new Rect(width * 0.18f, bottomBarY, width * 0.64f, bottomBarHeight);
-        FillGuiRect(bottom, new Color(0.12f, 0.045f, 0.025f, 0.92f));
-        GUI.Label(new Rect(bottom.x + 18f, bottom.y + 6f, 120f, 20f), "BET", small);
-        GUI.Label(new Rect(bottom.x + 18f, bottom.y + bottom.height * 0.42f, 120f, 24f), "100.00", panelText);
-        bool showingResult = !string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil;
-        string centerAction = showingResult ? resultBanner == "GOAL" ? "COLLECT" : "TRY AGAIN" : shooting ? "ACTION" : "TAP GOAL";
-        Rect centerActionRect = new Rect(bottom.x + bottom.width * 0.38f, bottom.y + bottom.height * 0.3f, bottom.width * 0.24f, 28f);
-        if (showingResult)
-        {
-            float actionPulse = Mathf.Sin(Time.time * 12f) * 0.5f + 0.5f;
-            FillGuiRect(new Rect(centerActionRect.x - 10f, centerActionRect.y - 3f, centerActionRect.width + 20f, centerActionRect.height + 6f), new Color(1f, 0.88f, 0.18f, Mathf.Lerp(0.14f, 0.34f, actionPulse)));
-        }
-        GUI.Label(centerActionRect, centerAction, panelText);
-        GUI.Label(new Rect(bottom.x + bottom.width - 160f, bottom.y + 6f, 138f, 20f), "DEMO BALANCE", small);
-        GUI.Label(new Rect(bottom.x + bottom.width - 160f, bottom.y + bottom.height * 0.42f, 138f, 24f), "1,000.00", panelText);
         if (showDebugControls && !string.IsNullOrEmpty(activeKeeperControllerName))
         {
             GUIStyle debugStyle = new GUIStyle(GUI.skin.label)
@@ -614,7 +597,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 fontStyle = FontStyle.Bold,
                 normal = { textColor = new Color(0.48f, 0.86f, 1f, 0.92f) }
             };
-            GUI.Label(new Rect(bottom.x, bottom.y - 22f, bottom.width, 18f), activeKeeperControllerName, debugStyle);
+            GUI.Label(new Rect(width * 0.24f, topPad + topBarHeight * 0.88f, width * 0.52f, 18f), activeKeeperControllerName, debugStyle);
         }
 
         if (!string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil)
@@ -894,7 +877,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void DrawIdleGoalGridGlow()
     {
-        if (shooting || !TryGetGoalGuiRect(out Rect goalRect))
+        if (!TryGetGoalGuiRect(out Rect goalRect))
         {
             return;
         }
@@ -902,18 +885,44 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float cellWidth = goalRect.width / 3f;
         float cellHeight = goalRect.height / 3f;
         float pulse = Mathf.Sin(Time.time * 3.2f) * 0.5f + 0.5f;
-        Color line = new Color(0.52f, 0.86f, 1f, Mathf.Lerp(0.06f, 0.14f, pulse));
-        Color selected = new Color(0.52f, 0.86f, 1f, Mathf.Lerp(0.045f, 0.11f, pulse));
+        if (!string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil)
+        {
+            return;
+        }
+
+        float active = shooting ? 0.78f : 1f;
+        Color cellFill = new Color(0.12f, 0.48f, 0.72f, 0.085f * active);
+        Color line = new Color(0.72f, 0.94f, 1f, Mathf.Lerp(0.22f, 0.38f, pulse) * active);
+        Color selected = new Color(0.58f, 0.9f, 1f, Mathf.Lerp(0.16f, 0.3f, pulse) * active);
+        Color selectedBorder = new Color(0.9f, 1f, 1f, Mathf.Lerp(0.54f, 0.88f, pulse) * active);
         Rect selectedCell = new Rect(goalRect.x + aimCol * cellWidth, goalRect.y + aimRow * cellHeight, cellWidth, cellHeight);
+        for (int row = 0; row < 3; row++)
+        {
+            for (int col = 0; col < 3; col++)
+            {
+                Rect cell = new Rect(goalRect.x + col * cellWidth, goalRect.y + row * cellHeight, cellWidth, cellHeight);
+                FillGuiRect(new Rect(cell.x + 5f, cell.y + 5f, cell.width - 10f, cell.height - 10f), cellFill);
+            }
+        }
+
         FillGuiRect(new Rect(selectedCell.x + 4f, selectedCell.y + 4f, selectedCell.width - 8f, selectedCell.height - 8f), selected);
 
         for (int i = 1; i < 3; i++)
         {
             float x = goalRect.x + cellWidth * i;
             float y = goalRect.y + cellHeight * i;
-            FillGuiRect(new Rect(x - 1f, goalRect.y, 2f, goalRect.height), line);
-            FillGuiRect(new Rect(goalRect.x, y - 1f, goalRect.width, 2f), line);
+            FillGuiRect(new Rect(x - 1.6f, goalRect.y, 3.2f, goalRect.height), line);
+            FillGuiRect(new Rect(goalRect.x, y - 1.6f, goalRect.width, 3.2f), line);
         }
+
+        FillGuiRect(new Rect(goalRect.x, goalRect.y, goalRect.width, 3f), line);
+        FillGuiRect(new Rect(goalRect.x, goalRect.yMax - 3f, goalRect.width, 3f), line);
+        FillGuiRect(new Rect(goalRect.x, goalRect.y, 3f, goalRect.height), line);
+        FillGuiRect(new Rect(goalRect.xMax - 3f, goalRect.y, 3f, goalRect.height), line);
+        FillGuiRect(new Rect(selectedCell.x, selectedCell.y, selectedCell.width, 4f), selectedBorder);
+        FillGuiRect(new Rect(selectedCell.x, selectedCell.yMax - 4f, selectedCell.width, 4f), selectedBorder);
+        FillGuiRect(new Rect(selectedCell.x, selectedCell.y, 4f, selectedCell.height), selectedBorder);
+        FillGuiRect(new Rect(selectedCell.xMax - 4f, selectedCell.y, 4f, selectedCell.height), selectedBorder);
     }
 
     private void DrawGoalFramePulse()
@@ -5027,13 +5036,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         buttonObject.transform.SetParent(parent, false);
 
         Image image = buttonObject.AddComponent<Image>();
-        image.color = new Color(1f, 1f, 1f, 0.045f);
+        image.color = new Color(0.12f, 0.48f, 0.72f, 0.1f);
+
+        Outline outline = buttonObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0.72f, 0.94f, 1f, 0.42f);
+        outline.effectDistance = new Vector2(1.4f, -1.4f);
 
         Button button = buttonObject.AddComponent<Button>();
         ColorBlock colors = button.colors;
-        colors.normalColor = new Color(1f, 1f, 1f, 0.045f);
-        colors.highlightedColor = new Color(1f, 0.92f, 0.25f, 0.24f);
-        colors.pressedColor = new Color(1f, 0.82f, 0.08f, 0.42f);
+        colors.normalColor = new Color(0.12f, 0.48f, 0.72f, 0.1f);
+        colors.highlightedColor = new Color(0.62f, 0.9f, 1f, 0.26f);
+        colors.pressedColor = new Color(0.82f, 0.96f, 1f, 0.46f);
         colors.selectedColor = colors.highlightedColor;
         button.colors = colors;
 
@@ -5103,7 +5116,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
             int col = i % 3;
             int row = i / 3;
-            cell.sizeDelta = new Vector2(width / 3f - 4f, height / 3f - 4f);
+            cell.sizeDelta = new Vector2(width / 3f - 6f, height / 3f - 6f);
             cell.anchoredPosition = new Vector2((col - 1) * width / 3f, (1 - row) * height / 3f);
         }
     }
