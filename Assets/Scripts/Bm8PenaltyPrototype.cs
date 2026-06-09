@@ -492,7 +492,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         DrawArcadeHud();
         DrawGoalFramePulse();
         DrawIdleGoalGridGlow();
-        DrawReadyAimGuide();
         DrawReadyBallAura();
         DrawShootingActionOverlay();
         DrawTargetLockOverlay();
@@ -891,53 +890,74 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float cellHeight = goalRect.height / 3f;
         float pulse = Mathf.Sin(Time.time * 3.2f) * 0.5f + 0.5f;
         float active = 1f;
+        int focusCol = aimCol;
+        int focusRow = aimRow;
+        Vector2 pointer = new Vector2(Input.mousePosition.x, Screen.height - Input.mousePosition.y);
+        if (goalRect.Contains(pointer))
+        {
+            focusCol = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(goalRect.xMin, goalRect.xMax, pointer.x) * 3f), 0, 2);
+            focusRow = Mathf.Clamp(Mathf.FloorToInt(Mathf.InverseLerp(goalRect.yMin, goalRect.yMax, pointer.y) * 3f), 0, 2);
+        }
 
         for (int row = 0; row < 3; row++)
         {
             for (int col = 0; col < 3; col++)
             {
                 Rect cell = new Rect(goalRect.x + col * cellWidth, goalRect.y + row * cellHeight, cellWidth, cellHeight);
-                DrawAimingBallMarker(cell, col == aimCol && row == aimRow, pulse, active);
+                DrawAimingTargetMarker(cell, col == focusCol && row == focusRow, pulse, active);
             }
         }
     }
 
-    private static void DrawAimingBallMarker(Rect cell, bool selected, float pulse, float active)
+    private static void DrawAimingTargetMarker(Rect cell, bool selected, float pulse, float active)
     {
         Vector2 center = new Vector2(cell.x + cell.width * 0.5f, cell.y + cell.height * 0.5f);
-        float baseSize = Mathf.Clamp(Mathf.Min(cell.width, cell.height) * (selected ? 0.46f : 0.3f), 18f, selected ? 42f : 28f);
-        float size = selected ? baseSize + Mathf.Lerp(1.5f, 5f, pulse) : baseSize;
-        if (selected)
+        float minCell = Mathf.Min(cell.width, cell.height);
+        float dotSize = Mathf.Clamp(minCell * 0.08f, 5f, 9f);
+        Color dot = new Color(0.72f, 0.94f, 1f, (selected ? 0.28f : 0.14f) * active);
+        DrawGuiDisc(center, dotSize, dot);
+        if (!selected)
         {
-            float glow = size * Mathf.Lerp(1.55f, 1.95f, pulse);
-            FillGuiRect(new Rect(center.x - glow * 0.5f, center.y - glow * 0.16f, glow, glow * 0.32f), new Color(0.42f, 0.86f, 1f, Mathf.Lerp(0.12f, 0.28f, pulse) * active));
-            FillGuiRect(new Rect(center.x - glow * 0.16f, center.y - glow * 0.5f, glow * 0.32f, glow), new Color(0.42f, 0.86f, 1f, Mathf.Lerp(0.08f, 0.2f, pulse) * active));
+            return;
         }
 
-        Color shadow = new Color(0f, 0f, 0f, (selected ? 0.24f : 0.14f) * active);
-        FillGuiRect(new Rect(center.x - size * 0.45f, center.y + size * 0.4f, size * 0.9f, size * 0.16f), shadow);
+        float size = Mathf.Clamp(minCell * 0.42f + Mathf.Lerp(0f, 5f, pulse), 28f, 48f);
+        float ring = size * Mathf.Lerp(0.92f, 1.12f, pulse);
+        float line = Mathf.Max(2f, size * 0.065f);
+        Color glow = new Color(0.22f, 0.72f, 1f, Mathf.Lerp(0.12f, 0.28f, pulse) * active);
+        Color white = new Color(0.96f, 1f, 1f, 0.72f * active);
+        Color blue = new Color(0.42f, 0.9f, 1f, 0.86f * active);
 
-        int slices = 7;
+        FillGuiRect(new Rect(center.x - ring * 0.5f, center.y - ring * 0.08f, ring, ring * 0.16f), glow);
+        FillGuiRect(new Rect(center.x - ring * 0.08f, center.y - ring * 0.5f, ring * 0.16f, ring), glow);
+
+        float corner = size * 0.28f;
+        float inset = size * 0.5f;
+        FillGuiRect(new Rect(center.x - inset, center.y - inset, corner, line), blue);
+        FillGuiRect(new Rect(center.x - inset, center.y - inset, line, corner), blue);
+        FillGuiRect(new Rect(center.x + inset - corner, center.y - inset, corner, line), blue);
+        FillGuiRect(new Rect(center.x + inset - line, center.y - inset, line, corner), blue);
+        FillGuiRect(new Rect(center.x - inset, center.y + inset - line, corner, line), blue);
+        FillGuiRect(new Rect(center.x - inset, center.y + inset - corner, line, corner), blue);
+        FillGuiRect(new Rect(center.x + inset - corner, center.y + inset - line, corner, line), blue);
+        FillGuiRect(new Rect(center.x + inset - line, center.y + inset - corner, line, corner), blue);
+
+        FillGuiRect(new Rect(center.x - line * 0.5f, center.y - size * 0.28f, line, size * 0.56f), white);
+        FillGuiRect(new Rect(center.x - size * 0.28f, center.y - line * 0.5f, size * 0.56f, line), white);
+        DrawGuiDisc(center, dotSize * 1.44f, new Color(1f, 1f, 1f, 0.9f * active));
+    }
+
+    private static void DrawGuiDisc(Vector2 center, float size, Color color)
+    {
+        const int slices = 7;
         for (int i = 0; i < slices; i++)
         {
             float sliceT = slices == 1 ? 0.5f : i / (float)(slices - 1);
             float y = Mathf.Lerp(-0.5f, 0.5f, sliceT);
             float sliceWidth = Mathf.Sqrt(Mathf.Clamp01(1f - y * y * 4f)) * size;
             float sliceHeight = size / slices + 1f;
-            Color white = selected ? new Color(0.98f, 1f, 1f, 0.96f * active) : new Color(0.9f, 0.96f, 1f, 0.78f * active);
-            FillGuiRect(new Rect(center.x - sliceWidth * 0.5f, center.y + y * size - sliceHeight * 0.5f, sliceWidth, sliceHeight), white);
+            FillGuiRect(new Rect(center.x - sliceWidth * 0.5f, center.y + y * size - sliceHeight * 0.5f, sliceWidth, sliceHeight), color);
         }
-
-        Color seam = new Color(0.08f, 0.1f, 0.12f, (selected ? 0.82f : 0.56f) * active);
-        float patch = size * 0.18f;
-        FillGuiRect(new Rect(center.x - patch * 0.5f, center.y - patch * 0.5f, patch, patch), seam);
-        FillGuiRect(new Rect(center.x - size * 0.34f, center.y - size * 0.2f, patch * 0.75f, patch * 0.75f), seam);
-        FillGuiRect(new Rect(center.x + size * 0.18f, center.y - size * 0.24f, patch * 0.75f, patch * 0.75f), seam);
-        FillGuiRect(new Rect(center.x - size * 0.24f, center.y + size * 0.18f, patch * 0.75f, patch * 0.75f), seam);
-        FillGuiRect(new Rect(center.x + size * 0.2f, center.y + size * 0.16f, patch * 0.75f, patch * 0.75f), seam);
-
-        Color highlight = selected ? new Color(1f, 1f, 1f, 0.34f * active) : new Color(1f, 1f, 1f, 0.18f * active);
-        FillGuiRect(new Rect(center.x - size * 0.24f, center.y - size * 0.36f, size * 0.34f, size * 0.08f), highlight);
     }
 
     private void DrawGoalFramePulse()
@@ -989,34 +1009,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         FillGuiRect(new Rect(center.x + size * 0.5f - 3f, center.y - size * 0.5f, 3f, size), ring);
     }
 
-    private void DrawReadyAimGuide()
-    {
-        if (shooting || Camera.main == null || !string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil || !TryGetGoalGuiRect(out Rect goalRect))
-        {
-            return;
-        }
-
-        Vector3 ballScreen = Camera.main.WorldToScreenPoint(ball.position + new Vector3(0f, 0.12f, 0f));
-        if (ballScreen.z <= 0f)
-        {
-            return;
-        }
-
-        float cellWidth = goalRect.width / 3f;
-        float cellHeight = goalRect.height / 3f;
-        Vector2 from = new Vector2(ballScreen.x, Screen.height - ballScreen.y);
-        Vector2 to = new Vector2(goalRect.x + (aimCol + 0.5f) * cellWidth, goalRect.y + (aimRow + 0.5f) * cellHeight);
-        float pulse = Mathf.Sin(Time.time * 5.5f) * 0.5f + 0.5f;
-        Color color = new Color(0.7f, 0.92f, 1f, Mathf.Lerp(0.08f, 0.22f, pulse));
-        for (int i = 1; i <= 9; i++)
-        {
-            float t = i / 10f;
-            Vector2 p = Vector2.Lerp(from, to, t);
-            float size = Mathf.Lerp(5f, 9f, Mathf.Repeat(t + Time.time * 0.8f, 1f));
-            FillGuiRect(new Rect(p.x - size * 0.5f, p.y - size * 0.5f, size, size), color);
-        }
-    }
-
     private void DrawTargetLockOverlay()
     {
         if (Time.time >= targetLockUntil || !TryGetGoalGuiRect(out Rect goalRect))
@@ -1030,7 +1022,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float cellHeight = goalRect.height / 3f;
         Rect cell = new Rect(goalRect.x + aimCol * cellWidth, goalRect.y + aimRow * cellHeight, cellWidth, cellHeight);
         float pulse = Mathf.Sin(age * 24f) * 0.5f + 0.5f;
-        DrawAimingBallMarker(cell, true, pulse, life);
+        DrawAimingTargetMarker(cell, true, pulse, life);
     }
 
     private void DrawTargetConfirmRipple()
