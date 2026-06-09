@@ -1499,7 +1499,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
         float resultHold = save
             ? Mathf.Max(UseAaAnimatedKeeper ? aaProfile.resultHold : keeperRow == 0 ? 2.25f : 2.05f, resultBannerUntil - Time.time + 0.28f)
-            : 0.9f;
+            : Mathf.Max(UseAaAnimatedKeeper ? aaProfile.resultHold : 1.4f, resultBannerUntil - Time.time + 0.28f);
         yield return new WaitForSecondsRealtime(resultHold);
         yield return ReturnAllToReady(save ? 0.42f : 0.28f);
         SetStatus("Tap goal");
