@@ -877,6 +877,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void DrawIdleGoalGridGlow()
     {
+        if (shooting || Time.time < targetLockUntil + 0.12f || !string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil)
+        {
+            return;
+        }
+
         if (!TryGetGoalGuiRect(out Rect goalRect))
         {
             return;
@@ -885,26 +890,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float cellWidth = goalRect.width / 3f;
         float cellHeight = goalRect.height / 3f;
         float pulse = Mathf.Sin(Time.time * 3.2f) * 0.5f + 0.5f;
-        if (!string.IsNullOrEmpty(resultBanner) && Time.time < resultBannerUntil)
-        {
-            return;
-        }
-
-        float active = shooting ? 0.78f : 1f;
-        Color line = new Color(0.78f, 0.95f, 1f, Mathf.Lerp(0.14f, 0.26f, pulse) * active);
-
-        for (int i = 1; i < 3; i++)
-        {
-            float x = goalRect.x + cellWidth * i;
-            float y = goalRect.y + cellHeight * i;
-            FillGuiRect(new Rect(x - 1f, goalRect.y, 2f, goalRect.height), line);
-            FillGuiRect(new Rect(goalRect.x, y - 1f, goalRect.width, 2f), line);
-        }
-
-        FillGuiRect(new Rect(goalRect.x, goalRect.y, goalRect.width, 2f), line);
-        FillGuiRect(new Rect(goalRect.x, goalRect.yMax - 2f, goalRect.width, 2f), line);
-        FillGuiRect(new Rect(goalRect.x, goalRect.y, 2f, goalRect.height), line);
-        FillGuiRect(new Rect(goalRect.xMax - 2f, goalRect.y, 2f, goalRect.height), line);
+        float active = 1f;
 
         for (int row = 0; row < 3; row++)
         {
@@ -1033,11 +1019,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void DrawTargetLockOverlay()
     {
-        if (!ShowShotYellowEffects)
-        {
-            return;
-        }
-
         if (Time.time >= targetLockUntil || !TryGetGoalGuiRect(out Rect goalRect))
         {
             return;
@@ -1049,24 +1030,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float cellHeight = goalRect.height / 3f;
         Rect cell = new Rect(goalRect.x + aimCol * cellWidth, goalRect.y + aimRow * cellHeight, cellWidth, cellHeight);
         float pulse = Mathf.Sin(age * 24f) * 0.5f + 0.5f;
-        float inset = Mathf.Lerp(10f, 2f, Mathf.Sin(Mathf.Clamp01(age / 0.18f) * Mathf.PI));
-        Rect glow = new Rect(cell.x + inset, cell.y + inset, cell.width - inset * 2f, cell.height - inset * 2f);
-        Color fill = new Color(1f, 0.82f, 0.08f, Mathf.Lerp(0.08f, 0.26f, pulse) * life);
-        Color border = new Color(1f, 0.96f, 0.25f, Mathf.Lerp(0.42f, 0.92f, pulse) * life);
-        FillGuiRect(glow, fill);
-        FillGuiRect(new Rect(glow.x, glow.y, glow.width, 4f), border);
-        FillGuiRect(new Rect(glow.x, glow.yMax - 4f, glow.width, 4f), border);
-        FillGuiRect(new Rect(glow.x, glow.y, 4f, glow.height), border);
-        FillGuiRect(new Rect(glow.xMax - 4f, glow.y, 4f, glow.height), border);
+        DrawAimingBallMarker(cell, true, pulse, life);
     }
 
     private void DrawTargetConfirmRipple()
     {
-        if (!ShowShotYellowEffects)
-        {
-            return;
-        }
-
         if (Time.time >= targetLockUntil || !TryGetGoalGuiRect(out Rect goalRect))
         {
             return;
@@ -1084,14 +1052,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         for (int i = 0; i < 2; i++)
         {
             float t = Mathf.Clamp01((age - i * 0.08f) / 0.44f);
-            float grow = Mathf.Lerp(0f, 28f, t);
-            float alpha = Mathf.Lerp(0.42f, 0f, t);
-            Rect rect = new Rect(cell.x - grow, cell.y - grow, cell.width + grow * 2f, cell.height + grow * 2f);
-            Color color = new Color(1f, 0.94f, 0.18f, alpha);
-            FillGuiRect(new Rect(rect.x, rect.y, rect.width, 3f), color);
-            FillGuiRect(new Rect(rect.x, rect.yMax - 3f, rect.width, 3f), color);
-            FillGuiRect(new Rect(rect.x, rect.y, 3f, rect.height), color);
-            FillGuiRect(new Rect(rect.xMax - 3f, rect.y, 3f, rect.height), color);
+            if (t <= 0f)
+            {
+                continue;
+            }
+
+            Vector2 center = new Vector2(cell.x + cell.width * 0.5f, cell.y + cell.height * 0.5f);
+            float size = Mathf.Lerp(Mathf.Min(cell.width, cell.height) * 0.42f, Mathf.Min(cell.width, cell.height) * 0.92f, t);
+            float alpha = Mathf.Lerp(0.34f, 0f, t);
+            Color color = new Color(0.5f, 0.9f, 1f, alpha);
+            FillGuiRect(new Rect(center.x - size * 0.5f, center.y - size * 0.08f, size, size * 0.16f), color);
+            FillGuiRect(new Rect(center.x - size * 0.08f, center.y - size * 0.5f, size * 0.16f, size), color);
         }
     }
 
@@ -5015,7 +4986,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         goalGrid = grid;
 
         Image frame = gridObject.AddComponent<Image>();
-        frame.color = new Color(0f, 0f, 0f, 0.04f);
+        frame.color = Color.clear;
         frame.raycastTarget = false;
 
         string[] labels =
@@ -5065,18 +5036,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         buttonObject.transform.SetParent(parent, false);
 
         Image image = buttonObject.AddComponent<Image>();
-        image.color = new Color(0.12f, 0.48f, 0.72f, 0.015f);
-
-        Outline outline = buttonObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.72f, 0.94f, 1f, 0.08f);
-        outline.effectDistance = new Vector2(1.4f, -1.4f);
+        image.color = Color.clear;
+        image.raycastTarget = true;
 
         Button button = buttonObject.AddComponent<Button>();
+        button.transition = Selectable.Transition.None;
         ColorBlock colors = button.colors;
-        colors.normalColor = new Color(0.12f, 0.48f, 0.72f, 0.015f);
-        colors.highlightedColor = new Color(0.62f, 0.9f, 1f, 0.12f);
-        colors.pressedColor = new Color(0.82f, 0.96f, 1f, 0.22f);
-        colors.selectedColor = colors.highlightedColor;
+        colors.normalColor = Color.clear;
+        colors.highlightedColor = Color.clear;
+        colors.pressedColor = Color.clear;
+        colors.selectedColor = Color.clear;
+        colors.disabledColor = Color.clear;
         button.colors = colors;
 
         RectTransform rect = buttonObject.GetComponent<RectTransform>();
