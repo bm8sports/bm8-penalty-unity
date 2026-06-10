@@ -3033,8 +3033,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
         else if (bottom && side != 0f && keeperCurrentSave)
         {
-            recover = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.86f, 1f, t));
+            recover = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.92f, 1f, t));
             hold = launch * (1f - recover);
+            contactPunch = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.32f, 0.58f, t)) * Mathf.PI);
         }
 
         float x = -visualSide * 0.22f * anticipation - visualSide * 0.06f * readDrop - visualSide * 0.12f * coil + visualSide * (top ? 0.78f : middle ? 1.02f : 1.18f) * hold + visualSide * 0.1f * contactPunch;
@@ -3045,6 +3046,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             x = -visualSide * 0.1f * anticipation - visualSide * 0.045f * readDrop - visualSide * 0.05f * coil + visualSide * 0.52f * hold + visualSide * 0.035f * contactPunch;
             y = -0.2f * anticipation - 0.14f * readDrop - 0.08f * coil + 0.72f * hold + 0.05f * snap;
             z = 0.08f * anticipation + 0.03f * readDrop - 0.05f * coil - 0.14f * hold - 0.045f * contactPunch;
+        }
+        else if (bottom && side != 0f && keeperCurrentSave)
+        {
+            x = -visualSide * 0.12f * anticipation - visualSide * 0.04f * readDrop - visualSide * 0.08f * coil + visualSide * 0.74f * hold + visualSide * 0.05f * contactPunch;
+            y = -0.16f * anticipation - 0.08f * readDrop - 0.06f * coil - 0.16f * hold + 0.03f * snap;
+            z = 0.07f * anticipation + 0.02f * readDrop - 0.03f * coil - 0.28f * hold - 0.04f * contactPunch;
         }
         if (side == 0f)
         {
@@ -3060,6 +3067,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             pitch = 10f * anticipation + 8f * readDrop - 5f * coil - 8f * hold - 3f * contactPunch;
             roll = side == 0f ? 0f : visualSide * 5f * anticipation + visualSide * 3f * readDrop - visualSide * (3.5f * hold + 1.5f * contactPunch);
+        }
+        else if (bottom && side != 0f && keeperCurrentSave)
+        {
+            pitch = 6f * anticipation + 3f * readDrop - 3f * coil + 8f * hold + 4f * contactPunch;
+            roll = visualSide * 4f * anticipation + visualSide * 2f * readDrop - visualSide * (18f * hold + 4f * contactPunch);
         }
         importedKeeperActionRotationOffset = Quaternion.Euler(pitch, 0f, roll);
     }
@@ -3607,12 +3619,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             if (avatarSide < 0)
             {
-                return "AA_Soccer_Goal_CatchBall_LD_" + suffix;
+                return save ? "AA_Soccer_Goal_HoldBall_LD" : "AA_Soccer_Goal_Down_LD";
             }
 
             if (avatarSide > 0)
             {
-                return "AA_Soccer_Goal_CatchBall_RD_" + suffix;
+                return save ? "AA_Soccer_Goal_HoldBall_RD" : "AA_Soccer_Goal_Down_RD";
             }
 
             return "AA_Soccer_Goal_CatchBall_F_" + suffix;
@@ -3804,23 +3816,23 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
             return new AaKeeperMotionProfile
             {
-                actionDuration = center ? 1.06f : 1.16f,
-                ballDuration = center ? 1.04f : 1.1f,
-                resultHold = center ? 1.98f : 2.16f,
-                poseHoldT = center ? 0.62f : 0.82f,
-                contactTime = center ? 0.26f : 0.29f,
-                punchWindow = center ? 0.16f : 0.18f,
-                maxHandGap = center ? 0.21f : 0.22f,
+                actionDuration = center ? 1.06f : 1.28f,
+                ballDuration = center ? 1.04f : 1.16f,
+                resultHold = center ? 1.98f : 2.28f,
+                poseHoldT = center ? 0.62f : 0.9f,
+                contactTime = center ? 0.26f : 0.34f,
+                punchWindow = center ? 0.16f : 0.2f,
+                maxHandGap = center ? 0.21f : 0.26f,
                 maxHandReach = center ? 0.62f : 0.68f,
                 handIkMin = 0.5f,
                 handIkMax = center ? 0.66f : 0.72f,
                 shotArc = 0.18f,
                 deflectArc = center ? 0.28f : 0.34f,
-                rootSide = center ? 0f : 1.04f,
-                rootZ = center ? -0.46f : -0.36f,
-                rootPitch = center ? 4f : 5f,
-                rootYawSide = 9f,
-                rootRollSide = center ? -12f : -14f,
+                rootSide = center ? 0f : 1.12f,
+                rootZ = center ? -0.46f : -0.34f,
+                rootPitch = center ? 4f : 1f,
+                rootYawSide = center ? 9f : 6f,
+                rootRollSide = center ? -12f : -4f,
                 goalMaxZOffset = 1.02f,
                 maxCenterDriftX = 2.2f,
                 maxCenterDriftY = 1.35f,

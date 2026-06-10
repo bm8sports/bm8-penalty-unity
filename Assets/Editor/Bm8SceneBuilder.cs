@@ -22,10 +22,10 @@ public static class Bm8SceneBuilder
         "AA_Soccer_Goal_HitBall_R_Fail",
         "AA_Soccer_Goal_CatchBall_F_Succ",
         "AA_Soccer_Goal_HitBall_F_Fail",
-        "AA_Soccer_Goal_CatchBall_LD_Succ",
-        "AA_Soccer_Goal_CatchBall_LD_Fail",
-        "AA_Soccer_Goal_CatchBall_RD_Succ",
-        "AA_Soccer_Goal_CatchBall_RD_Fail",
+        "AA_Soccer_Goal_HoldBall_LD",
+        "AA_Soccer_Goal_Down_LD",
+        "AA_Soccer_Goal_HoldBall_RD",
+        "AA_Soccer_Goal_Down_RD",
         "AA_Soccer_Goal_LHandHit_UL",
         "AA_Soccer_Goal_RHandHit_UR",
         "AA_Soccer_Goal_HitBall_TL_Succ",
@@ -205,10 +205,10 @@ public static class Bm8SceneBuilder
         issues += ValidateExpectedController(expectedController, 2, 1, true, "AA_Soccer_Goal_CatchBall_L_Succ");
         issues += ValidateExpectedController(expectedController, 0, 1, false, "AA_Soccer_Goal_HitBall_R_Fail");
         issues += ValidateExpectedController(expectedController, 2, 1, false, "AA_Soccer_Goal_HitBall_L_Fail");
-        issues += ValidateExpectedController(expectedController, 0, 2, true, "AA_Soccer_Goal_CatchBall_RD_Succ");
-        issues += ValidateExpectedController(expectedController, 2, 2, true, "AA_Soccer_Goal_CatchBall_LD_Succ");
-        issues += ValidateExpectedController(expectedController, 0, 2, false, "AA_Soccer_Goal_CatchBall_RD_Fail");
-        issues += ValidateExpectedController(expectedController, 2, 2, false, "AA_Soccer_Goal_CatchBall_LD_Fail");
+        issues += ValidateExpectedController(expectedController, 0, 2, true, "AA_Soccer_Goal_HoldBall_RD");
+        issues += ValidateExpectedController(expectedController, 2, 2, true, "AA_Soccer_Goal_HoldBall_LD");
+        issues += ValidateExpectedController(expectedController, 0, 2, false, "AA_Soccer_Goal_Down_RD");
+        issues += ValidateExpectedController(expectedController, 2, 2, false, "AA_Soccer_Goal_Down_LD");
 
         if (issues > 0)
         {
