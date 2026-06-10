@@ -17,10 +17,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private const float LowSaveFootGroundY = 0.02f;
     private const float LowSaveFootBoneHoldY = 0.025f;
     private const float LowSaveMaxFootY = 0.055f;
-    private const float LowSaveSoftGroundStartT = 0.58f;
-    private const float LowSaveHardGroundStartT = 0.76f;
-    private const float LowSaveFootPinStartT = 0.6f;
-    private const float LowSaveFootPinFullT = 0.82f;
+    private const float LowSaveSoftGroundStartT = 0.64f;
+    private const float LowSaveHardGroundStartT = 0.86f;
+    private const float LowSaveFootPinStartT = 0.68f;
+    private const float LowSaveFootPinFullT = 0.92f;
     private const float ShotWatchdogSeconds = 14f;
     private const double ShotWatchdogWallSeconds = 14d;
     private const float KeeperTestShotTimeoutSeconds = 15f;
@@ -2653,19 +2653,21 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        float dive = Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.44f, 0.72f, actionT)));
-        if (dive <= 0.001f)
+        float settleIn = Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.58f, 0.78f, actionT)));
+        float settleOut = 1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.92f, 1f, actionT)));
+        float settle = settleIn * settleOut;
+        if (settle <= 0.001f)
         {
             return;
         }
 
         float side = GoalGridSide(MotionKeeperCol);
-        float bodyDrop = Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.5f, 0.82f, actionT)));
-        keeperVisibleModel.position += new Vector3(side * 0.1f * dive, -0.12f * bodyDrop, -0.08f * dive);
+        float bodyDrop = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.62f, 0.9f, actionT)) * Mathf.PI) * settle;
+        keeperVisibleModel.position += new Vector3(side * 0.045f * settle, -0.035f * bodyDrop, -0.026f * settle);
         keeperVisibleModel.rotation = Quaternion.Slerp(
             keeperVisibleModel.rotation,
-            keeperVisibleModel.rotation * Quaternion.Euler(10f * dive, 0f, -side * 16f * dive),
-            0.68f);
+            keeperVisibleModel.rotation * Quaternion.Euler(-4.5f * settle, 0f, -side * 6f * settle),
+            0.5f);
     }
 
     private void PullLowSideVisibleModelToFootGround(float weight)
@@ -3031,9 +3033,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
         else if (bottom && side != 0f && keeperCurrentSave)
         {
-            recover = 0f;
+            recover = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.86f, 1f, t));
             hold = launch * (1f - recover);
-            contactPunch = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.28f, 0.56f, t)) * Mathf.PI);
         }
 
         float x = -visualSide * 0.22f * anticipation - visualSide * 0.06f * readDrop - visualSide * 0.12f * coil + visualSide * (top ? 0.78f : middle ? 1.02f : 1.18f) * hold + visualSide * 0.1f * contactPunch;
@@ -3044,12 +3045,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             x = -visualSide * 0.1f * anticipation - visualSide * 0.045f * readDrop - visualSide * 0.05f * coil + visualSide * 0.52f * hold + visualSide * 0.035f * contactPunch;
             y = -0.2f * anticipation - 0.14f * readDrop - 0.08f * coil + 0.72f * hold + 0.05f * snap;
             z = 0.08f * anticipation + 0.03f * readDrop - 0.05f * coil - 0.14f * hold - 0.045f * contactPunch;
-        }
-        else if (bottom && side != 0f && keeperCurrentSave)
-        {
-            x = -visualSide * 0.14f * anticipation - visualSide * 0.05f * readDrop - visualSide * 0.1f * coil + visualSide * 1.28f * hold + visualSide * 0.08f * contactPunch;
-            y = -0.22f * anticipation - 0.1f * readDrop - 0.08f * coil - 0.54f * hold + 0.035f * snap;
-            z = 0.1f * anticipation + 0.02f * readDrop - 0.04f * coil - 0.68f * hold - 0.04f * contactPunch;
         }
         if (side == 0f)
         {
@@ -3065,11 +3060,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             pitch = 10f * anticipation + 8f * readDrop - 5f * coil - 8f * hold - 3f * contactPunch;
             roll = side == 0f ? 0f : visualSide * 5f * anticipation + visualSide * 3f * readDrop - visualSide * (3.5f * hold + 1.5f * contactPunch);
-        }
-        else if (bottom && side != 0f && keeperCurrentSave)
-        {
-            pitch = 10f * anticipation + 4f * readDrop - 4f * coil + 28f * hold + 8f * contactPunch;
-            roll = visualSide * 6f * anticipation + visualSide * 3f * readDrop - visualSide * (58f * hold + 10f * contactPunch);
         }
         importedKeeperActionRotationOffset = Quaternion.Euler(pitch, 0f, roll);
     }
@@ -3817,7 +3807,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 actionDuration = center ? 1.06f : 1.16f,
                 ballDuration = center ? 1.04f : 1.1f,
                 resultHold = center ? 1.98f : 2.16f,
-                poseHoldT = center ? 0.62f : 0.72f,
+                poseHoldT = center ? 0.62f : 0.82f,
                 contactTime = center ? 0.26f : 0.29f,
                 punchWindow = center ? 0.16f : 0.18f,
                 maxHandGap = center ? 0.21f : 0.22f,
@@ -3826,11 +3816,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 handIkMax = center ? 0.66f : 0.72f,
                 shotArc = 0.18f,
                 deflectArc = center ? 0.28f : 0.34f,
-                rootSide = center ? 0f : 1.16f,
-                rootZ = center ? -0.46f : -0.42f,
-                rootPitch = center ? 4f : 8f,
+                rootSide = center ? 0f : 1.04f,
+                rootZ = center ? -0.46f : -0.36f,
+                rootPitch = center ? 4f : 5f,
                 rootYawSide = 9f,
-                rootRollSide = center ? -12f : -16f,
+                rootRollSide = center ? -12f : -14f,
                 goalMaxZOffset = 1.02f,
                 maxCenterDriftX = 2.2f,
                 maxCenterDriftY = 1.35f,

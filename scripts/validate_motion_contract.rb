@@ -31,9 +31,9 @@ checks = {
   "saved ball uses smoother load" => fly_ball.include?("Vector3.Lerp(contact, palmLoad, Smoother(loadT))"),
   "miss result waits for full banner" => source.include?(": Mathf.Max(UseAaAnimatedKeeper ? aaProfile.resultHold : 1.4f, resultBannerUntil - Time.time + 0.28f);"),
   "catch saves clamp ball to active hand" => source.include?("ball.position = ClampAaCatchBallToHand(ball.position, t, contactTime);"),
-  "low side foot pin starts before final frame" => source.include?("private const float LowSaveFootPinStartT = 0.6f;"),
-  "low side saves freeze before stand-up recovery" => source.include?("poseHoldT = center ? 0.62f : 0.72f,"),
-  "low side saves drive laterally enough" => source.include?("rootSide = center ? 0f : 1.16f,")
+  "low side foot pin starts before final frame" => source.include?("private const float LowSaveFootPinStartT = 0.68f;"),
+  "low side saves avoid early frozen pose" => source.include?("poseHoldT = center ? 0.62f : 0.82f,"),
+  "low side saves keep natural lateral drive" => source.include?("rootSide = center ? 0f : 1.04f,")
 }
 
 failed = checks.select { |_name, passed| !passed }
