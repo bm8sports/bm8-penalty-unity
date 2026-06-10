@@ -16,11 +16,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static readonly bool ShowShotYellowEffects = false;
     private const float LowSaveFootGroundY = 0.02f;
     private const float LowSaveFootBoneHoldY = 0.025f;
-    private const float LowSaveMaxFootY = 0.08f;
-    private const float LowSaveSoftGroundStartT = 0.68f;
-    private const float LowSaveHardGroundStartT = 0.84f;
-    private const float LowSaveFootPinStartT = 0.72f;
-    private const float LowSaveFootPinFullT = 0.9f;
+    private const float LowSaveMaxFootY = 0.055f;
+    private const float LowSaveSoftGroundStartT = 0.58f;
+    private const float LowSaveHardGroundStartT = 0.76f;
+    private const float LowSaveFootPinStartT = 0.6f;
+    private const float LowSaveFootPinFullT = 0.82f;
     private const float ShotWatchdogSeconds = 14f;
     private const double ShotWatchdogWallSeconds = 14d;
     private const float KeeperTestShotTimeoutSeconds = 15f;
@@ -1782,7 +1782,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     keeperAnimator.Update(0f);
                     poseFrozen = true;
                 }
-                float moveT = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.08f, 0.52f, Mathf.Min(actionT, rootHoldT)));
+                float moveT = Smoother(Mathf.InverseLerp(0.04f, saved ? 0.58f : 0.54f, Mathf.Min(actionT, rootHoldT)));
                 keeper.position = Vector3.Lerp(rootFrom, rootTo, moveT);
                 keeper.rotation = Quaternion.Slerp(rotationFrom, rotationTo, moveT);
                 AnchorImportedKeeperVisibleModel();
@@ -2063,15 +2063,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         bool centerAaSave = UseAaAnimatedKeeper && motionCol == 1;
         Vector3 deflect = standingBlockSave
             ? new Vector3(
-                Mathf.Clamp(contact.x + reboundSide * UnityEngine.Random.Range(0.65f, 1.1f), -1.65f, 1.65f),
-                Mathf.Clamp(contact.y + UnityEngine.Random.Range(0.74f, 1.08f), 1.55f, 3.35f),
-                UnityEngine.Random.Range(-3.05f, -2.45f))
+                Mathf.Clamp(contact.x + reboundSide * 0.88f, -1.65f, 1.65f),
+                Mathf.Clamp(contact.y + 0.92f, 1.55f, 3.35f),
+                -2.72f)
             : UseAaAnimatedKeeper
             ? catchAaSave ? AaCatchSettleWorld(contact, reboundSide) : AaDeflectWorld(contact, reboundSide)
             : new Vector3(
-                Mathf.Clamp(contact.x + reboundSide * UnityEngine.Random.Range(2.35f, 3.35f), -3.7f, 3.7f),
-                Mathf.Clamp(contact.y + UnityEngine.Random.Range(0.62f, 1.3f), 1.05f, 3.35f),
-                UnityEngine.Random.Range(-3.45f, -2.35f));
+                Mathf.Clamp(contact.x + reboundSide * 2.86f, -3.7f, 3.7f),
+                Mathf.Clamp(contact.y + 0.96f, 1.05f, 3.35f),
+                -2.92f);
         Vector3 drop = catchAaSave
             ? AaCatchDropWorld(deflect, reboundSide)
             : AaDeflectDropWorld(deflect, reboundSide);
@@ -2130,19 +2130,19 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 else if (t < loadTime)
                 {
                     float loadT = (t - contactTime) / (loadTime - contactTime);
-                    position = Vector3.Lerp(contact, palmLoad, Smooth(loadT));
-                    position.x += Mathf.Sin(loadT * Mathf.PI) * reboundSide * 0.035f;
+                    position = Vector3.Lerp(contact, palmLoad, Smoother(loadT));
                 }
                 else if (t < punchTime)
                 {
                     float outT = (t - loadTime) / (punchTime - loadTime);
-                    position = Vector3.Lerp(palmLoad, deflect, EaseOut(outT, motionRow == 0 ? 3.55f : 2.85f));
+                    float punchT = EaseOut(Smoother(outT), motionRow == 0 ? 2.6f : 2.25f);
+                    position = Vector3.Lerp(palmLoad, deflect, punchT);
                     position.y += Mathf.Sin(outT * Mathf.PI) * (UseAaAnimatedKeeper ? AaDeflectArcHeight() : 1.36f);
                 }
                 else
                 {
                     float fallT = (t - punchTime) / (1f - punchTime);
-                    position = Vector3.Lerp(deflect, drop, EaseOut(fallT, motionRow == 0 ? 1.45f : 1.18f));
+                    position = Vector3.Lerp(deflect, drop, Smoother(fallT));
                     position.y += Mathf.Sin(fallT * Mathf.PI) * (motionRow == 0 ? 0.12f : 0.22f);
                     if (!saveDustTriggered && fallT > 0.56f)
                     {
@@ -5344,9 +5344,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         if (MotionKeeperCol == 1)
         {
-            float sideNudge = reboundSide * UnityEngine.Random.Range(0.18f, 0.38f);
-            float upNudge = MotionKeeperRow == 0 ? UnityEngine.Random.Range(0.28f, 0.44f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(0.04f, 0.16f) : UnityEngine.Random.Range(0.1f, 0.24f);
-            float zNudge = MotionKeeperRow == 0 ? UnityEngine.Random.Range(-1.1f, -0.82f) : UnityEngine.Random.Range(-0.86f, -0.58f);
+            float sideNudge = reboundSide * (MotionKeeperRow == 0 ? 0.28f : MotionKeeperRow == 2 ? 0.2f : 0.26f);
+            float upNudge = MotionKeeperRow == 0 ? 0.36f : MotionKeeperRow == 2 ? 0.1f : 0.18f;
+            float zNudge = MotionKeeperRow == 0 ? -0.96f : -0.72f;
             return new Vector3(
                 Mathf.Clamp(contact.x + sideNudge, -0.64f, 0.64f),
                 Mathf.Clamp(contact.y + upNudge, 0.72f, 3.55f),
@@ -5361,9 +5361,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 contact.z - 1.02f);
         }
 
-        float sidePush = MotionKeeperRow == 2 ? UnityEngine.Random.Range(2.15f, 2.85f) : UnityEngine.Random.Range(2.55f, 3.35f);
-        float upPush = MotionKeeperRow == 2 ? UnityEngine.Random.Range(0.22f, 0.5f) : UnityEngine.Random.Range(0.72f, 1.08f);
-        float zPush = MotionKeeperRow == 2 ? UnityEngine.Random.Range(-3.45f, -2.85f) : UnityEngine.Random.Range(-3.7f, -2.8f);
+        float sidePush = MotionKeeperRow == 2 ? 2.48f : 2.92f;
+        float upPush = MotionKeeperRow == 2 ? 0.34f : 0.9f;
+        float zPush = MotionKeeperRow == 2 ? -3.08f : -3.22f;
         return new Vector3(
             Mathf.Clamp(contact.x + reboundSide * sidePush, -3.75f, 3.75f),
             Mathf.Clamp(contact.y + upPush, 0.72f, 3.55f),
@@ -5382,9 +5382,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         return new Vector3(
-            Mathf.Clamp(deflect.x + (center ? reboundSide * UnityEngine.Random.Range(0.08f, 0.22f) : reboundSide * UnityEngine.Random.Range(MotionKeeperRow == 2 ? 0.38f : 0.48f, MotionKeeperRow == 2 ? 0.95f : 1.05f)), -3.8f, 3.8f),
+            Mathf.Clamp(deflect.x + (center ? reboundSide * 0.14f : reboundSide * (MotionKeeperRow == 2 ? 0.66f : 0.82f)), -3.8f, 3.8f),
             MotionKeeperRow == 0 ? 0.24f : 0.28f,
-            center ? UnityEngine.Random.Range(-2.55f, -2.18f) : UnityEngine.Random.Range(MotionKeeperRow == 2 ? -3.25f : -2.85f, MotionKeeperRow == 2 ? -2.45f : -2.35f));
+            center ? -2.36f : MotionKeeperRow == 2 ? -2.72f : -2.6f);
     }
 
     private bool AaUsesCatchSave()
@@ -5405,9 +5405,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 contact.z + sideZPull);
         }
 
-        float sideNudge = MotionKeeperCol == 1 ? side * UnityEngine.Random.Range(0.04f, 0.12f) : side * UnityEngine.Random.Range(0.1f, 0.24f);
-        float yDrop = MotionKeeperRow == 0 ? UnityEngine.Random.Range(-0.04f, 0.04f) : MotionKeeperRow == 2 ? UnityEngine.Random.Range(-0.14f, -0.06f) : UnityEngine.Random.Range(-0.08f, 0.02f);
-        float zPull = MotionKeeperRow == 0 ? UnityEngine.Random.Range(-0.22f, -0.12f) : UnityEngine.Random.Range(-0.34f, -0.18f);
+        float sideNudge = MotionKeeperCol == 1 ? side * 0.08f : side * 0.16f;
+        float yDrop = MotionKeeperRow == 0 ? 0f : MotionKeeperRow == 2 ? -0.1f : -0.035f;
+        float zPull = MotionKeeperRow == 0 ? -0.16f : -0.26f;
         return new Vector3(
             Mathf.Clamp(contact.x + sideNudge, -1.55f, 1.55f),
             Mathf.Clamp(contact.y + yDrop, 0.72f, 3.55f),
@@ -5426,9 +5426,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         return new Vector3(
-            Mathf.Clamp(caught.x + side * UnityEngine.Random.Range(0.04f, 0.16f), -1.8f, 1.8f),
+            Mathf.Clamp(caught.x + side * 0.1f, -1.8f, 1.8f),
             MotionKeeperRow == 0 ? 0.3f : 0.24f,
-            caught.z + UnityEngine.Random.Range(-0.46f, -0.26f));
+            caught.z - 0.34f);
     }
 
     private Vector3 ClampAaCatchBallToHand(Vector3 plannedPosition, float t, float contactTime)
@@ -5678,6 +5678,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static float Smooth(float t)
     {
         return t * t * (3f - 2f * t);
+    }
+
+    private static float Smoother(float t)
+    {
+        t = Mathf.Clamp01(t);
+        return t * t * t * (t * (t * 6f - 15f) + 10f);
     }
 
     private static float EaseOut(float t, float power)
