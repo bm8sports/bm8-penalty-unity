@@ -61,7 +61,11 @@ checks = {
     source.include?("private float ShotTargetY(float power)") &&
     source.include?("return Mathf.Clamp(lifted, 0.58f, 0.82f);") &&
     source.include?("return row == 2 ? 0.08f : 0.25f;"),
-  "player keeps simulating when focus moves to test tooling" => source.include?("Application.runInBackground = true;")
+  "player keeps simulating when focus moves to test tooling" => source.include?("Application.runInBackground = true;"),
+  "editor can build a Windows player package" => File.read(File.join(root, "Assets", "Editor", "Bm8SceneBuilder.cs")).include?("[MenuItem(\"BM8/Build Windows Player\")]") &&
+    File.read(File.join(root, "Assets", "Editor", "Bm8SceneBuilder.cs")).include?("BuildTarget.StandaloneWindows64") &&
+    File.read(File.join(root, "Assets", "Editor", "Bm8SceneBuilder.cs")).include?("Builds/Windows") &&
+    File.read(File.join(root, "Assets", "Editor", "Bm8SceneBuilder.cs")).include?("Windows Build Support module")
 }
 
 failed = checks.select { |_name, passed| !passed }

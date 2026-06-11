@@ -53,9 +53,32 @@ public static class Bm8SceneBuilder
     [MenuItem("BM8/Build Mac Player")]
     public static void BuildMacPlayer()
     {
+        BuildStandalonePlayer(
+            "Mac",
+            Path.Combine(Path.GetFullPath("Builds/Mac"), "BM8PenaltyPrototype.app"),
+            BuildTarget.StandaloneOSX);
+    }
+
+    [MenuItem("BM8/Build Windows Player")]
+    public static void BuildWindowsPlayer()
+    {
+        if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.Standalone, BuildTarget.StandaloneWindows64))
+        {
+            Debug.LogError("BM8 Windows build support is not installed for this Unity editor. Install the Windows Build Support module for Unity 6000.4.8f1 in Unity Hub, then run BM8/Build Windows Player again.");
+            return;
+        }
+
+        BuildStandalonePlayer(
+            "Windows",
+            Path.Combine(Path.GetFullPath("Builds/Windows"), "BM8PenaltyPrototype.exe"),
+            BuildTarget.StandaloneWindows64);
+    }
+
+    private static void BuildStandalonePlayer(string label, string outputPath, BuildTarget target)
+    {
         if (EditorApplication.isPlayingOrWillChangePlaymode)
         {
-            Debug.LogError("Stop Play Mode before building the BM8 Mac player.");
+            Debug.LogError("Stop Play Mode before building the BM8 " + label + " player.");
             return;
         }
 
@@ -65,30 +88,30 @@ public static class Bm8SceneBuilder
             new EditorBuildSettingsScene("Assets/Scenes/BM8PenaltyPrototype.unity", true)
         };
 
-        string buildFolder = Path.GetFullPath("Builds/Mac");
+        string buildFolder = Path.GetDirectoryName(outputPath);
         Directory.CreateDirectory(buildFolder);
 
         var buildOptions = new BuildPlayerOptions
         {
             scenes = new[] { "Assets/Scenes/BM8PenaltyPrototype.unity" },
-            locationPathName = Path.Combine(buildFolder, "BM8PenaltyPrototype.app"),
-            target = BuildTarget.StandaloneOSX,
+            locationPathName = outputPath,
+            target = target,
             options = BuildOptions.None
         };
 
-        BuildReportSummary(BuildPipeline.BuildPlayer(buildOptions));
+        BuildReportSummary(label, BuildPipeline.BuildPlayer(buildOptions));
     }
 
-    private static void BuildReportSummary(BuildReport report)
+    private static void BuildReportSummary(string label, BuildReport report)
     {
         if (report.summary.result == BuildResult.Succeeded)
         {
-            Debug.Log("BM8 Mac build complete: " + report.summary.outputPath);
+            Debug.Log("BM8 " + label + " build complete: " + report.summary.outputPath);
             EditorUtility.RevealInFinder(report.summary.outputPath);
             return;
         }
 
-        Debug.LogError("BM8 Mac build failed: " + report.summary.result + " (" + report.summary.totalErrors + " errors)");
+        Debug.LogError("BM8 " + label + " build failed: " + report.summary.result + " (" + report.summary.totalErrors + " errors)");
     }
 
     [MenuItem("BM8/Validate Goalkeeper Animation Setup")]
