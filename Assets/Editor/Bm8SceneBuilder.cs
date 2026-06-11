@@ -88,6 +88,12 @@ public static class Bm8SceneBuilder
             new EditorBuildSettingsScene("Assets/Scenes/BM8PenaltyPrototype.unity", true)
         };
 
+        if (!EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Standalone, target))
+        {
+            Debug.LogError("BM8 " + label + " build failed: Unity could not switch to " + target + ".");
+            return;
+        }
+
         string buildFolder = Path.GetDirectoryName(outputPath);
         Directory.CreateDirectory(buildFolder);
 
@@ -99,19 +105,19 @@ public static class Bm8SceneBuilder
             options = BuildOptions.None
         };
 
-        BuildReportSummary(label, BuildPipeline.BuildPlayer(buildOptions));
+        BuildReportSummary(label, outputPath, BuildPipeline.BuildPlayer(buildOptions));
     }
 
-    private static void BuildReportSummary(string label, BuildReport report)
+    private static void BuildReportSummary(string label, string outputPath, BuildReport report)
     {
-        if (report.summary.result == BuildResult.Succeeded)
+        if (report.summary.result == BuildResult.Succeeded && File.Exists(outputPath))
         {
             Debug.Log("BM8 " + label + " build complete: " + report.summary.outputPath);
             EditorUtility.RevealInFinder(report.summary.outputPath);
             return;
         }
 
-        Debug.LogError("BM8 " + label + " build failed: " + report.summary.result + " (" + report.summary.totalErrors + " errors)");
+        Debug.LogError("BM8 " + label + " build failed: " + report.summary.result + " (" + report.summary.totalErrors + " errors). Expected output missing: " + outputPath);
     }
 
     [MenuItem("BM8/Validate Goalkeeper Animation Setup")]
