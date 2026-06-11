@@ -22,6 +22,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private const float KeeperTestShotTimeoutSeconds = 12f;
     private const string UploadedStylizedKeeperPath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/Goalkeeper_TPose.FBX";
     private const string Bm8KeeperBaseTexturePath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/textures/Goalkeeper_Base_color.png";
+    private const string UploadedStylizedKeeperResource = "BM8Keeper/ThuMon/Goalkeeper_TPose";
+    private const string Bm8KeeperBaseTextureResource = "BM8Keeper/ThuMon/textures/Goalkeeper_Base_color";
     private const string AaGoalkeeperControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
 
     [Header("Scene Objects")]
@@ -201,7 +203,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (UseAaAnimatedKeeper)
         {
             DisableKeeperSpriteSheet();
-            EnsureUploadedStylizedKeeperInEditor();
+            EnsureUploadedStylizedKeeper();
             EnsureImportedKeeperActive();
         }
         else if (UseGeneratedKeeperSpriteSheet)
@@ -2382,9 +2384,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
     }
 
-    private void EnsureUploadedStylizedKeeperInEditor()
+    private void EnsureUploadedStylizedKeeper()
     {
-#if UNITY_EDITOR
         Transform currentVisible = FindKeeperVisibleModel();
         bool alreadyStylized = currentVisible != null && currentVisible.name.Contains("Stylized");
         if (alreadyStylized)
@@ -2393,7 +2394,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        GameObject stylizedPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(UploadedStylizedKeeperPath);
+        GameObject stylizedPrefab = LoadUploadedStylizedKeeperPrefab();
         if (stylizedPrefab == null)
         {
             keeperVisibleModel = currentVisible;
@@ -2402,11 +2403,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         DestroyKeeperVisibleModels();
 
+#if UNITY_EDITOR
         GameObject visible = (GameObject)PrefabUtility.InstantiatePrefab(stylizedPrefab);
         if (visible == null)
         {
             visible = Instantiate(stylizedPrefab);
         }
+#else
+        GameObject visible = Instantiate(stylizedPrefab);
+#endif
 
         visible.name = "Visible FBX Keeper Stylized";
         visible.transform.SetParent(keeper, false);
@@ -2422,7 +2427,19 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             keeperAnimator = visible.AddComponent<Animator>();
         }
+    }
+
+    private GameObject LoadUploadedStylizedKeeperPrefab()
+    {
+#if UNITY_EDITOR
+        GameObject editorPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(UploadedStylizedKeeperPath);
+        if (editorPrefab != null)
+        {
+            return editorPrefab;
+        }
 #endif
+
+        return Resources.Load<GameObject>(UploadedStylizedKeeperResource);
     }
 
     private void DestroyKeeperVisibleModels()
@@ -2483,8 +2500,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         RemoveKeeperKitPanels();
 
-#if UNITY_EDITOR
-        Texture2D bm8Texture = AssetDatabase.LoadAssetAtPath<Texture2D>(Bm8KeeperBaseTexturePath);
+        Texture2D bm8Texture = LoadBm8KeeperBaseTexture();
         if (bm8Texture != null)
         {
             foreach (Renderer renderer in keeperVisibleModel.GetComponentsInChildren<Renderer>(true))
@@ -2511,7 +2527,19 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 }
             }
         }
+    }
+
+    private Texture2D LoadBm8KeeperBaseTexture()
+    {
+#if UNITY_EDITOR
+        Texture2D editorTexture = AssetDatabase.LoadAssetAtPath<Texture2D>(Bm8KeeperBaseTexturePath);
+        if (editorTexture != null)
+        {
+            return editorTexture;
+        }
 #endif
+
+        return Resources.Load<Texture2D>(Bm8KeeperBaseTextureResource);
     }
 
     private void CaptureImportedKeeperAnchor()
@@ -2753,29 +2781,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void ApplyLowSideSaveSettleMotion(float actionT)
     {
-        if (!ShouldPinLowSideSaveFeet() || keeperVisibleModel == null)
-        {
-            return;
-        }
-
-        float settleIn = Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.62f, 0.82f, actionT)));
-        float settleOut = 1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.92f, 1f, actionT)));
-        float settle = settleIn * settleOut;
-        if (settle <= 0.001f)
-        {
-            return;
-        }
-
-        float side = GoalGridSide(MotionKeeperCol);
-        float bodyDrop = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.62f, 0.9f, actionT)) * Mathf.PI) * settle;
-        // Amplitudes are doubled relative to the original tuning: that tuning was done
-        // while this pass accidentally ran twice per frame, so a single application
-        // needs 2x to look the same.
-        keeperVisibleModel.position += new Vector3(side * 0.04f * settle, -0.03f * bodyDrop, -0.028f * settle);
-        keeperVisibleModel.rotation = Quaternion.Slerp(
-            keeperVisibleModel.rotation,
-            keeperVisibleModel.rotation * Quaternion.Euler(-2f * settle, 0f, -side * 2.5f * settle),
-            0.58f);
+        // Low-side settle is now baked into ApplyImportedKeeperActionOffset.
+        // It must stay time-based; frame-accumulating transforms made player builds drift.
     }
 
     private void ApplyKeeperLowSideFootIk()
@@ -2957,6 +2964,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         bool top = MotionKeeperRow == 0;
         bool middle = MotionKeeperRow == 1;
         bool bottom = MotionKeeperRow == 2;
+        float lowSideSettle = bottom && side != 0f && keeperCurrentSave
+            ? Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.62f, 0.82f, t))) *
+              (1f - Smooth(Mathf.Clamp01(Mathf.InverseLerp(0.92f, 1f, t))))
+            : 0f;
+        float lowSideBodyDrop = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.62f, 0.9f, t)) * Mathf.PI) * lowSideSettle;
 
         float coil = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0f, 0.2f, t)) * Mathf.PI);
         float launch = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.1f, 0.43f, t));
@@ -2998,6 +3010,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             x = -visualSide * 0.08f * anticipation - visualSide * 0.03f * readDrop - visualSide * 0.04f * coil + visualSide * 0.26f * hold + visualSide * 0.03f * contactPunch;
             y = -0.08f * anticipation - 0.04f * readDrop - 0.03f * coil - 0.05f * hold + 0.02f * snap;
             z = 0.04f * anticipation + 0.015f * readDrop - 0.02f * coil - 0.12f * hold - 0.025f * contactPunch;
+            x += visualSide * 0.04f * lowSideSettle;
+            y -= 0.03f * lowSideBodyDrop;
+            z -= 0.028f * lowSideSettle;
         }
         if (side == 0f)
         {
@@ -3018,6 +3033,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             pitch = 3f * anticipation + 2f * readDrop - 2f * coil + 3f * hold + 2f * contactPunch;
             roll = visualSide * 3f * anticipation + visualSide * readDrop - visualSide * (7f * hold + 2f * contactPunch);
+            pitch -= 2f * lowSideSettle;
+            roll -= visualSide * 2.5f * lowSideSettle;
         }
         importedKeeperActionRotationOffset = Quaternion.Euler(pitch, 0f, roll);
     }

@@ -18,6 +18,7 @@ end
 fly_ball = section(source, "private IEnumerator FlyBall", "private void CacheBodyParts")
 aa_deflect = section(source, "private Vector3 AaDeflectWorld", "private bool AaUsesCatchSave")
 aa_catch = section(source, "private Vector3 AaCatchSettleWorld", "private float AaShotArcHeight")
+low_side_settle = section(source, "private void ApplyLowSideSaveSettleMotion", "private void ApplyKeeperLowSideFootIk")
 
 checks = {
   "old box aiming guide removed" => !source.include?("DrawReadyAimGuide") && !source.include?("DrawAimingBallMarker"),
@@ -37,7 +38,13 @@ checks = {
     !source.include?("AA_Soccer_Goal_HoldBall_LD") &&
     !source.include?("AA_Soccer_Goal_HoldBall_RD"),
   "low side saves play the dive down to the ground" => source.include?("poseHoldT = center ? 0.62f : 0.85f,"),
-  "low side saves keep natural lateral drive" => source.include?("rootSide = center ? 0f : 1.06f,")
+  "low side saves keep natural lateral drive" => source.include?("rootSide = center ? 0f : 1.06f,"),
+  "low side settle is time-based, not frame-accumulating" => !low_side_settle.include?("keeperVisibleModel.position +=") &&
+    !low_side_settle.include?("keeperVisibleModel.rotation =") &&
+    source.include?("float lowSideSettle = bottom && side != 0f && keeperCurrentSave"),
+  "player build loads the same stylized keeper as editor" => source.include?("EnsureUploadedStylizedKeeper();") &&
+    source.include?("Resources.Load<GameObject>(UploadedStylizedKeeperResource)") &&
+    source.include?("Resources.Load<Texture2D>(Bm8KeeperBaseTextureResource)")
 }
 
 failed = checks.select { |_name, passed| !passed }
