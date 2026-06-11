@@ -1,5 +1,7 @@
+using System.IO;
 using System.Reflection;
 using UnityEditor;
+using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
@@ -46,6 +48,47 @@ public static class Bm8SceneBuilder
     {
         EditorSceneManager.OpenScene("Assets/Scenes/BM8PenaltyPrototype.unity", OpenSceneMode.Single);
         Debug.Log("BM8 penalty prototype scene opened.");
+    }
+
+    [MenuItem("BM8/Build Mac Player")]
+    public static void BuildMacPlayer()
+    {
+        if (EditorApplication.isPlayingOrWillChangePlaymode)
+        {
+            Debug.LogError("Stop Play Mode before building the BM8 Mac player.");
+            return;
+        }
+
+        OpenPrototypeScene();
+        EditorBuildSettings.scenes = new[]
+        {
+            new EditorBuildSettingsScene("Assets/Scenes/BM8PenaltyPrototype.unity", true)
+        };
+
+        string buildFolder = Path.GetFullPath("Builds/Mac");
+        Directory.CreateDirectory(buildFolder);
+
+        var buildOptions = new BuildPlayerOptions
+        {
+            scenes = new[] { "Assets/Scenes/BM8PenaltyPrototype.unity" },
+            locationPathName = Path.Combine(buildFolder, "BM8PenaltyPrototype.app"),
+            target = BuildTarget.StandaloneOSX,
+            options = BuildOptions.None
+        };
+
+        BuildReportSummary(BuildPipeline.BuildPlayer(buildOptions));
+    }
+
+    private static void BuildReportSummary(BuildReport report)
+    {
+        if (report.summary.result == BuildResult.Succeeded)
+        {
+            Debug.Log("BM8 Mac build complete: " + report.summary.outputPath);
+            EditorUtility.RevealInFinder(report.summary.outputPath);
+            return;
+        }
+
+        Debug.LogError("BM8 Mac build failed: " + report.summary.result + " (" + report.summary.totalErrors + " errors)");
     }
 
     [MenuItem("BM8/Validate Goalkeeper Animation Setup")]
