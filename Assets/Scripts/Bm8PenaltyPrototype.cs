@@ -192,6 +192,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void Awake()
     {
+        Application.runInBackground = true;
+
         if (ball == null || player == null || keeper == null || cameraRig == null)
         {
             Debug.LogError("Bm8PenaltyPrototype: missing required scene references (ball/player/keeper/cameraRig). Component disabled. Run BM8/Rebuild Penalty Prototype Scene or rewire the inspector fields.");
@@ -1510,7 +1512,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         SetStatus("Strike");
         yield return PlantAndKick(0.58f);
 
-        Vector3 target = new Vector3(aimX, Mathf.Clamp(aimY + power * 0.25f, 0.85f, 2.42f), 5.15f);
+        Vector3 target = new Vector3(aimX, ShotTargetY(power), 5.15f);
         if (forceKeeperTestShot)
         {
             keeperCol = forcedKeeperCol;
@@ -5207,7 +5209,23 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private static float GridY(int row)
     {
-        return row == 0 ? 2.35f : row == 1 ? 1.65f : 1.0f;
+        return row == 0 ? 2.35f : row == 1 ? 1.65f : 0.68f;
+    }
+
+    private float ShotTargetY(float power)
+    {
+        float lifted = aimY + power * ShotPowerLift(aimRow);
+        if (aimRow == 2)
+        {
+            return Mathf.Clamp(lifted, 0.58f, 0.82f);
+        }
+
+        return Mathf.Clamp(lifted, 0.85f, 2.42f);
+    }
+
+    private static float ShotPowerLift(int row)
+    {
+        return row == 2 ? 0.08f : 0.25f;
     }
 
     private Vector3 KeeperDiveTarget(int col, int row)
@@ -5327,7 +5345,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Vector3 AimSaveContactWorld()
     {
         float power = powerSlider != null ? powerSlider.value : 0.75f;
-        Vector3 shotTarget = new Vector3(aimX, Mathf.Clamp(aimY + power * 0.25f, 0.85f, 2.42f), 5.15f);
+        Vector3 shotTarget = new Vector3(aimX, ShotTargetY(power), 5.15f);
         return AaSaveBallContactWorld(shotTarget);
     }
 

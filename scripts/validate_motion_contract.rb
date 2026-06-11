@@ -56,7 +56,12 @@ checks = {
     source.include?("case \"AA_Soccer_Goal_Down_LD\"") &&
     source.include?("case \"AA_Soccer_Goal_Down_RD\""),
   "player build references real low dive controllers in scene" => scene.include?("keeperAaLowLeftDiveController: {fileID: 9100000, guid: 25d8ba1f2aac2a9429161e688569c527, type: 2}") &&
-    scene.include?("keeperAaLowRightDiveController: {fileID: 9100000, guid: 4343bf6ee3a15f94b84e830d0f080130, type: 2}")
+    scene.include?("keeperAaLowRightDiveController: {fileID: 9100000, guid: 4343bf6ee3a15f94b84e830d0f080130, type: 2}"),
+  "bottom corner shots stay visibly low" => source.include?("return row == 0 ? 2.35f : row == 1 ? 1.65f : 0.68f;") &&
+    source.include?("private float ShotTargetY(float power)") &&
+    source.include?("return Mathf.Clamp(lifted, 0.58f, 0.82f);") &&
+    source.include?("return row == 2 ? 0.08f : 0.25f;"),
+  "player keeps simulating when focus moves to test tooling" => source.include?("Application.runInBackground = true;")
 }
 
 failed = checks.select { |_name, passed| !passed }
