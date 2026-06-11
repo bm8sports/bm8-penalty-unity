@@ -3,6 +3,8 @@
 
 root = File.expand_path("..", __dir__)
 source_path = File.join(root, "Assets", "Scripts", "Bm8PenaltyPrototype.cs")
+scene_path = File.join(root, "Assets", "Scenes", "BM8PenaltyPrototype.unity")
+resource_keeper_meta_path = File.join(root, "Assets", "Resources", "BM8Keeper", "ThuMon", "Goalkeeper_TPose.FBX.meta")
 
 unless File.exist?(source_path)
   warn "Missing source file: #{source_path}"
@@ -10,6 +12,8 @@ unless File.exist?(source_path)
 end
 
 source = File.read(source_path)
+scene = File.exist?(scene_path) ? File.read(scene_path) : ""
+resource_keeper_meta = File.exist?(resource_keeper_meta_path) ? File.read(resource_keeper_meta_path) : ""
 
 def section(source, start_pattern, end_pattern)
   source[/#{start_pattern}.*?#{end_pattern}/m] || ""
@@ -44,7 +48,15 @@ checks = {
     source.include?("float lowSideSettle = bottom && side != 0f && keeperCurrentSave"),
   "player build loads the same stylized keeper as editor" => source.include?("EnsureUploadedStylizedKeeper();") &&
     source.include?("Resources.Load<GameObject>(UploadedStylizedKeeperResource)") &&
-    source.include?("Resources.Load<Texture2D>(Bm8KeeperBaseTextureResource)")
+    source.include?("Resources.Load<Texture2D>(Bm8KeeperBaseTextureResource)"),
+  "resource keeper imports as humanoid for AA animations" => resource_keeper_meta.include?("animationType: 3") &&
+    resource_keeper_meta.include?("avatarSetup: 1"),
+  "player build resolves AA controllers without editor AssetDatabase" => source.include?("ResolveAaKeeperController(aaControllerName)") &&
+    source.include?("SerializedAaKeeperController(controllerName)") &&
+    source.include?("case \"AA_Soccer_Goal_Down_LD\"") &&
+    source.include?("case \"AA_Soccer_Goal_Down_RD\""),
+  "player build references real low dive controllers in scene" => scene.include?("keeperAaLowLeftDiveController: {fileID: 9100000, guid: 25d8ba1f2aac2a9429161e688569c527, type: 2}") &&
+    scene.include?("keeperAaLowRightDiveController: {fileID: 9100000, guid: 4343bf6ee3a15f94b84e830d0f080130, type: 2}")
 }
 
 failed = checks.select { |_name, passed| !passed }

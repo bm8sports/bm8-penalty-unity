@@ -11903,6 +11903,14 @@ MonoBehaviour:
   keeperHitTopLeftFailController: {fileID: 9100000, guid: c431d347741aad24f9e3a8ddd5a69af4, type: 2}
   keeperHitTopRightSuccessController: {fileID: 9100000, guid: 061eb70ba61e572489328310b644bfec, type: 2}
   keeperHitTopRightFailController: {fileID: 9100000, guid: a7867d363d70bc548af39f453113ddf3, type: 2}
+  keeperAaLowLeftDiveController: {fileID: 9100000, guid: 25d8ba1f2aac2a9429161e688569c527, type: 2}
+  keeperAaLowRightDiveController: {fileID: 9100000, guid: 4343bf6ee3a15f94b84e830d0f080130, type: 2}
+  keeperAaTopLeftTipController: {fileID: 9100000, guid: 86eaad51806e81241ab0739dac1eabb2, type: 2}
+  keeperAaTopRightTipController: {fileID: 9100000, guid: 8fe6828cb274db54185b56fa0de6db2e, type: 2}
+  keeperAaMiddleLeftCatchController: {fileID: 9100000, guid: 1c8370fb6f5fd844ebf003b22d2c7cf8, type: 2}
+  keeperAaMiddleRightCatchController: {fileID: 9100000, guid: b8f29dd8613f428498df91c0883f7329, type: 2}
+  keeperAaTopCenterHitFailController: {fileID: 9100000, guid: 8302ee29e572c2b4aa86494554aa4ec6, type: 2}
+  keeperAaMiddleCenterHitFailController: {fileID: 9100000, guid: b2fc36168a60ba14ea2894ec8af4d0e6, type: 2}
 --- !u!4 &1741766680
 Transform:
   m_ObjectHideFlags: 0

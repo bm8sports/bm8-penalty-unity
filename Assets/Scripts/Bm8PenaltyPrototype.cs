@@ -59,6 +59,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     [SerializeField] private RuntimeAnimatorController keeperHitTopLeftFailController;
     [SerializeField] private RuntimeAnimatorController keeperHitTopRightSuccessController;
     [SerializeField] private RuntimeAnimatorController keeperHitTopRightFailController;
+    [SerializeField] private RuntimeAnimatorController keeperAaLowLeftDiveController;
+    [SerializeField] private RuntimeAnimatorController keeperAaLowRightDiveController;
+    [SerializeField] private RuntimeAnimatorController keeperAaTopLeftTipController;
+    [SerializeField] private RuntimeAnimatorController keeperAaTopRightTipController;
+    [SerializeField] private RuntimeAnimatorController keeperAaMiddleLeftCatchController;
+    [SerializeField] private RuntimeAnimatorController keeperAaMiddleRightCatchController;
+    [SerializeField] private RuntimeAnimatorController keeperAaTopCenterHitFailController;
+    [SerializeField] private RuntimeAnimatorController keeperAaMiddleCenterHitFailController;
 
     private Vector3 ballStart;
     private Vector3 ballBaseScale;
@@ -3491,7 +3499,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         string aaControllerName = UseAaAnimatedKeeper ? AaKeeperControllerName(save) : "";
-        RuntimeAnimatorController controller = UseAaAnimatedKeeper ? LoadAaKeeperController(aaControllerName) : null;
+        RuntimeAnimatorController controller = UseAaAnimatedKeeper ? ResolveAaKeeperController(aaControllerName) : null;
         activeKeeperControllerName = controller != null ? aaControllerName : "";
         if (controller == null && keeperRow == 0)
         {
@@ -3509,7 +3517,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             else
             {
                 activeKeeperControllerName = save ? "AA_Soccer_Goal_HitBall_UP_Succ" : "AA_Soccer_Goal_HitBall_UP_Fail";
-                controller = LoadAaKeeperController(activeKeeperControllerName);
+                controller = ResolveAaKeeperController(activeKeeperControllerName);
             }
         }
         else if (controller == null && keeperRow == 2)
@@ -3623,6 +3631,51 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 #else
         return null;
 #endif
+    }
+
+    private RuntimeAnimatorController ResolveAaKeeperController(string controllerName)
+    {
+        RuntimeAnimatorController controller = LoadAaKeeperController(controllerName);
+        return controller != null ? controller : SerializedAaKeeperController(controllerName);
+    }
+
+    private RuntimeAnimatorController SerializedAaKeeperController(string controllerName)
+    {
+        switch (controllerName)
+        {
+            case "AA_Soccer_Goal_Idel":
+                return keeperIdleController;
+            case "AA_Soccer_Goal_CatchBall_F_Succ":
+                return keeperCatchForwardSuccessController;
+            case "AA_Soccer_Goal_HitBall_F_Fail":
+                return keeperAaMiddleCenterHitFailController != null ? keeperAaMiddleCenterHitFailController : keeperCatchForwardFailController;
+            case "AA_Soccer_Goal_CatchBall_UP_Succ":
+                return keeperCatchUpSuccessController;
+            case "AA_Soccer_Goal_HitBall_UP_Fail":
+                return keeperAaTopCenterHitFailController != null ? keeperAaTopCenterHitFailController : keeperCatchUpFailController;
+            case "AA_Soccer_Goal_Down_LD":
+                return keeperAaLowLeftDiveController != null ? keeperAaLowLeftDiveController : keeperCatchLeftDownSuccessController;
+            case "AA_Soccer_Goal_Down_RD":
+                return keeperAaLowRightDiveController != null ? keeperAaLowRightDiveController : keeperCatchRightDownSuccessController;
+            case "AA_Soccer_Goal_LHandHit_UL":
+                return keeperAaTopLeftTipController != null ? keeperAaTopLeftTipController : keeperHitTopLeftSuccessController;
+            case "AA_Soccer_Goal_RHandHit_UR":
+                return keeperAaTopRightTipController != null ? keeperAaTopRightTipController : keeperHitTopRightSuccessController;
+            case "AA_Soccer_Goal_CatchBall_L_Succ":
+                return keeperAaMiddleLeftCatchController != null ? keeperAaMiddleLeftCatchController : keeperHitLeftSuccessController;
+            case "AA_Soccer_Goal_CatchBall_R_Succ":
+                return keeperAaMiddleRightCatchController != null ? keeperAaMiddleRightCatchController : keeperHitRightSuccessController;
+            case "AA_Soccer_Goal_HitBall_TL_Fail":
+                return keeperHitTopLeftFailController;
+            case "AA_Soccer_Goal_HitBall_TR_Fail":
+                return keeperHitTopRightFailController;
+            case "AA_Soccer_Goal_HitBall_L_Fail":
+                return keeperHitLeftFailController;
+            case "AA_Soccer_Goal_HitBall_R_Fail":
+                return keeperHitRightFailController;
+            default:
+                return null;
+        }
     }
 
     private void PlayKeeperController(RuntimeAnimatorController controller)
@@ -5589,7 +5642,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
         if (keeperIdleController == null)
         {
-            keeperIdleController = LoadAaKeeperController("AA_Soccer_Goal_Idel");
+            keeperIdleController = ResolveAaKeeperController("AA_Soccer_Goal_Idel");
         }
 
         PlayKeeperController(keeperIdleController);
