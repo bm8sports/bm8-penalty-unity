@@ -1,3 +1,7 @@
+> **HISTORICAL (superseded 2026-06):** This design describes the earlier procedural
+> glove-marker save pass. The current direction is the stylized FBX keeper driven by
+> AA Mecanim controllers with humanoid IK — see `CODEX_HANDOFF.md` at the project root.
+
 # Goalkeeper Glove Save Design
 
 ## Goal

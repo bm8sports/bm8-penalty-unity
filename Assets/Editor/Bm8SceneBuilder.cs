@@ -15,13 +15,22 @@ public static class Bm8SceneBuilder
     {
         "AA_Soccer_Goal_Idel",
         "AA_Soccer_Goal_CatchBall_UP_Succ",
+        "AA_Soccer_Goal_CatchBall_UP_Fail",
+        "AA_Soccer_Goal_HitBall_UP_Succ",
         "AA_Soccer_Goal_HitBall_UP_Fail",
         "AA_Soccer_Goal_CatchBall_L_Succ",
+        "AA_Soccer_Goal_HitBall_L_Succ",
         "AA_Soccer_Goal_HitBall_L_Fail",
         "AA_Soccer_Goal_CatchBall_R_Succ",
+        "AA_Soccer_Goal_HitBall_R_Succ",
         "AA_Soccer_Goal_HitBall_R_Fail",
         "AA_Soccer_Goal_CatchBall_F_Succ",
+        "AA_Soccer_Goal_CatchBall_F_Fail",
         "AA_Soccer_Goal_HitBall_F_Fail",
+        "AA_Soccer_Goal_CatchBall_LD_Succ",
+        "AA_Soccer_Goal_CatchBall_LD_Fail",
+        "AA_Soccer_Goal_CatchBall_RD_Succ",
+        "AA_Soccer_Goal_CatchBall_RD_Fail",
         "AA_Soccer_Goal_Down_LD",
         "AA_Soccer_Goal_Down_RD",
         "AA_Soccer_Goal_LHandHit_UL",
@@ -235,8 +244,10 @@ public static class Bm8SceneBuilder
     {
         private const double SceneReadyTimeoutSeconds = 15d;
         private const double StartDelaySeconds = 0.35d;
-        private const double FullGridTimeoutSeconds = 90d;
-        private const double TopGridTimeoutSeconds = 45d;
+        // Nominal run is ~7s per shot, but editor warm-up after a domain reload can
+        // stretch shots toward the 12s per-shot cap; budget for the worst case.
+        private const double FullGridTimeoutSeconds = 150d;
+        private const double TopGridTimeoutSeconds = 75d;
         private const double KeeperActionFreezeGraceSeconds = 0.58d;
 
         private enum RunnerState

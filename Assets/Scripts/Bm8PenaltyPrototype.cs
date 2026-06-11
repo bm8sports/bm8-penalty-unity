@@ -15,15 +15,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static readonly bool UseArcadeVideoCamera = true;
     private static readonly bool ShowShotYellowEffects = false;
     private const float LowSaveFootGroundY = 0.02f;
-    private const float LowSaveFootBoneHoldY = 0.025f;
-    private const float LowSaveMaxFootY = 0.055f;
     private const float LowSaveSoftGroundStartT = 0.64f;
     private const float LowSaveHardGroundStartT = 0.86f;
-    private const float LowSaveFootPinStartT = 0.68f;
-    private const float LowSaveFootPinFullT = 0.92f;
     private const float ShotWatchdogSeconds = 14f;
     private const double ShotWatchdogWallSeconds = 14d;
-    private const float KeeperTestShotTimeoutSeconds = 15f;
+    private const float KeeperTestShotTimeoutSeconds = 12f;
     private const string UploadedStylizedKeeperPath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/Goalkeeper_TPose.FBX";
     private const string Bm8KeeperBaseTexturePath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/textures/Goalkeeper_Base_color.png";
     private const string AaGoalkeeperControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
@@ -130,6 +126,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private bool keeperTestMode;
     private int keeperTestShotIndex;
     private int keeperTestShotTotal;
+    private int keeperTestPreviousGoals;
+    private int keeperTestPreviousSaves;
+    private int keeperTestPreviousShotCount;
+    private int keeperTestPreviousGoalStreak;
+    private int keeperTestPreviousSaveStreak;
+    private readonly bool[] keeperTestPreviousHistoryGoals = new bool[5];
+    private readonly bool[] keeperTestPreviousHistoryResolved = new bool[5];
     private float keeperActionStartedAt;
     private float keeperActionDuration = 1f;
     private bool keeperSaveGroundLock;
@@ -179,6 +182,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void Awake()
     {
+        if (ball == null || player == null || keeper == null || cameraRig == null)
+        {
+            Debug.LogError("Bm8PenaltyPrototype: missing required scene references (ball/player/keeper/cameraRig). Component disabled. Run BM8/Rebuild Penalty Prototype Scene or rewire the inspector fields.");
+            enabled = false;
+            return;
+        }
+
         ballStart = ball.position;
         ballBaseScale = ball.localScale;
         playerStart = player.position;
@@ -247,6 +257,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         if (shooting)
+        {
+            return;
+        }
+
+        // The keeper test relaxes `shooting` between shots; user input in that gap
+        // would start concurrent tests or fire shots forced to the test outcome.
+        if (keeperTestMode)
         {
             return;
         }
@@ -320,7 +337,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             EnsureKeeperIkDriver();
             AnchorImportedKeeperVisibleModel();
-            ApplyKeeperPostAnimatorPose();
+            if (keeperIkDriver == null)
+            {
+                // Bm8KeeperIkDriver (execution order 10000) applies the post-animator
+                // pose after this LateUpdate; applying it here too doubles the additive
+                // settle offsets, so only fall back when no driver exists.
+                ApplyKeeperPostAnimatorPose();
+            }
             CheckKeeperSaveRealismContract();
         }
     }
@@ -337,11 +360,16 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        if (!shooting)
+        if (!shooting || !keeperActionActive)
         {
-            Vector3 leftReady = keeper.TransformPoint(new Vector3(-0.34f, 1.18f, -0.34f));
-            Vector3 rightReady = keeper.TransformPoint(new Vector3(0.34f, 1.18f, -0.34f));
-            ApplyKeeperHandIk(leftReady, rightReady, 0.42f);
+            // Ready/run-up stance: hold the hands relaxed at the keeper's sides until
+            // the dive actually starts. The idle clip contains arm-raise gestures that
+            // read as a stray raised/crossed hand, and the run-up/strike phase shows
+            // the raw clip otherwise. The avatar is rotated 180 degrees, so its left
+            // hand sits on world +x and its right hand on world -x.
+            Vector3 leftReady = keeper.TransformPoint(new Vector3(0.4f, 1.02f, -0.3f));
+            Vector3 rightReady = keeper.TransformPoint(new Vector3(-0.4f, 1.02f, -0.3f));
+            ApplyKeeperHandIk(leftReady, rightReady, 0.72f);
             ClearKeeperFootIk();
             return;
         }
@@ -380,16 +408,22 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void ApplyKeeperHandIk(Vector3 leftTarget, Vector3 rightTarget, float weight)
     {
-        float clamped = Mathf.Clamp01(weight);
+        ApplyKeeperHandIk(leftTarget, rightTarget, weight, weight);
+    }
+
+    private void ApplyKeeperHandIk(Vector3 leftTarget, Vector3 rightTarget, float leftWeight, float rightWeight)
+    {
+        float leftClamped = Mathf.Clamp01(leftWeight);
+        float rightClamped = Mathf.Clamp01(rightWeight);
         leftTarget = ClampKeeperHandIkTarget(HumanBodyBones.LeftUpperArm, HumanBodyBones.LeftHand, leftTarget);
         rightTarget = ClampKeeperHandIkTarget(HumanBodyBones.RightUpperArm, HumanBodyBones.RightHand, rightTarget);
-        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, clamped);
-        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.LeftHand, clamped * 0.55f);
+        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.LeftHand, leftClamped);
+        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.LeftHand, leftClamped * 0.55f);
         keeperAnimator.SetIKPosition(AvatarIKGoal.LeftHand, leftTarget);
         keeperAnimator.SetIKRotation(AvatarIKGoal.LeftHand, KeeperHandLookRotation(leftTarget));
 
-        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, clamped);
-        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.RightHand, clamped * 0.55f);
+        keeperAnimator.SetIKPositionWeight(AvatarIKGoal.RightHand, rightClamped);
+        keeperAnimator.SetIKRotationWeight(AvatarIKGoal.RightHand, rightClamped * 0.55f);
         keeperAnimator.SetIKPosition(AvatarIKGoal.RightHand, rightTarget);
         keeperAnimator.SetIKRotation(AvatarIKGoal.RightHand, KeeperHandLookRotation(rightTarget));
     }
@@ -433,7 +467,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        float actionT = Mathf.Clamp01((Time.time - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
+        float actionT = Mathf.Clamp01((Time.unscaledTime - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
         float contactT = AaContactTime();
         float reachIn = Smooth(Mathf.Clamp01(Mathf.InverseLerp(contactT - 0.2f, contactT + 0.03f, actionT)));
         float reachOut = Smooth(Mathf.Clamp01(Mathf.InverseLerp(contactT + AaPunchWindow() + 0.12f, contactT + AaPunchWindow() + 0.42f, actionT)));
@@ -451,22 +485,46 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         int avatarSide = KeeperAvatarSideForGoalColumn(MotionKeeperCol);
         Vector3 contact = AimSaveContactWorld();
         float spread = MotionKeeperRow == 0 ? 0.12f : MotionKeeperRow == 2 ? 0.15f : 0.17f;
-        Vector3 leftTarget = contact + new Vector3(-spread, MotionKeeperRow == 0 ? -0.02f : 0f, -0.02f);
-        Vector3 rightTarget = contact + new Vector3(spread, MotionKeeperRow == 0 ? -0.02f : 0f, -0.02f);
+        float maxAssist = MotionKeeperRow == 0 ? 0.3f : MotionKeeperRow == 2 ? 0.2f : 0.24f;
+        float ikWeight = Mathf.Lerp(0f, Mathf.Min(profile.handIkMax, maxAssist), weight);
+
+        // The avatar is rotated 180 degrees: its left hand lives on world +x, right on -x.
+        // The trailing (non-active) hand is anchored to its OWN side near the body so it
+        // can never be dragged across the torso (which buried it / made it vanish).
+        Vector3 leftTrail = keeper.TransformPoint(new Vector3(0.34f, 1.12f, -0.16f));
+        Vector3 rightTrail = keeper.TransformPoint(new Vector3(-0.34f, 1.12f, -0.16f));
+        float trailWeight = ikWeight * 0.85f;
+
+        Vector3 leftTarget;
+        Vector3 rightTarget;
+        float leftWeight;
+        float rightWeight;
         if (avatarSide < 0)
         {
+            // Dive to the avatar's left: left hand reaches the ball, right hand trails.
             leftTarget = contact;
-            rightTarget = contact + new Vector3(0.24f, -0.08f, 0.02f);
+            leftWeight = ikWeight;
+            rightTarget = rightTrail;
+            rightWeight = trailWeight;
         }
         else if (avatarSide > 0)
         {
-            leftTarget = contact + new Vector3(-0.24f, -0.08f, 0.02f);
+            // Dive to the avatar's right: right hand reaches the ball, left hand trails.
             rightTarget = contact;
+            rightWeight = ikWeight;
+            leftTarget = leftTrail;
+            leftWeight = trailWeight;
+        }
+        else
+        {
+            // Center catch: both hands meet the ball.
+            leftTarget = contact + new Vector3(-spread, MotionKeeperRow == 0 ? -0.02f : 0f, -0.02f);
+            rightTarget = contact + new Vector3(spread, MotionKeeperRow == 0 ? -0.02f : 0f, -0.02f);
+            leftWeight = ikWeight;
+            rightWeight = ikWeight;
         }
 
-        float maxAssist = MotionKeeperRow == 0 ? 0.3f : MotionKeeperRow == 2 ? 0.2f : 0.24f;
-        float ikWeight = Mathf.Lerp(0f, Mathf.Min(profile.handIkMax, maxAssist), weight);
-        ApplyKeeperHandIk(leftTarget, rightTarget, ikWeight);
+        ApplyKeeperHandIk(leftTarget, rightTarget, leftWeight, rightWeight);
     }
 
     private Quaternion KeeperHandLookRotation(Vector3 target)
@@ -1105,7 +1163,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         Color previousColor = GUI.backgroundColor;
         GUI.backgroundColor = new Color(0.12f, 0.04f, 0.035f, 0.96f);
-        GUI.enabled = !shooting;
+        GUI.enabled = !shooting && !keeperTestMode;
         if (GUI.Button(buttonRect, "TEST 9", style))
         {
             RunKeeperZoneTest();
@@ -1344,7 +1402,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     public void RunKeeperZoneTest()
     {
-        if (!shooting)
+        if (!shooting && !keeperTestMode)
         {
             StartCoroutine(TestAllKeeperZones());
         }
@@ -1352,7 +1410,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     public void RunTopKeeperZoneTest()
     {
-        if (!shooting)
+        if (!shooting && !keeperTestMode)
         {
             StartCoroutine(TestTopKeeperZones());
         }
@@ -1372,6 +1430,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     public void ResetShot()
     {
         StopAllCoroutines();
+        FinishKeeperTest("Test aborted");
         shooting = false;
         keeperActionActive = false;
         forceKeeperTestShot = false;
@@ -1463,7 +1522,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         saveReboundSide = keeperCol == 1 ? (aimCol == 0 ? -1f : aimCol == 2 ? 1f : UnityEngine.Random.value < 0.5f ? -1f : 1f) : GoalGridSide(keeperCol);
         PlayKeeperDiveAnimation(save);
         float keeperDuration = save && UseAaAnimatedKeeper ? aaProfile.actionDuration : save ? keeperRow == 0 ? 1.38f : 1.08f : 0.92f;
-        keeperActionStartedAt = Time.time;
+        keeperActionStartedAt = Time.unscaledTime;
         keeperActionDuration = Mathf.Max(0.1f, keeperDuration);
         keeperActionActive = true;
         StartCoroutine(DiveKeeper(keeperTarget, keeperDuration, save));
@@ -1514,12 +1573,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             yield break;
         }
 
-        int previousGoals = goals;
-        int previousSaves = saves;
-        int previousShotCount = shotCount;
-        keeperTestMode = true;
-        keeperTestShotIndex = 0;
-        keeperTestShotTotal = 9;
+        BeginKeeperTest(9);
         for (int row = 0; row < 3; row++)
         {
             for (int col = 0; col < 3; col++)
@@ -1549,19 +1603,19 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
                 if (shotTimedOut)
                 {
-                    FinishKeeperTest(previousGoals, previousSaves, previousShotCount, "TEST timeout " + GridName(col, row));
+                    FinishKeeperTest("TEST timeout " + GridName(col, row));
                     yield break;
                 }
 
                 if (!VerifyKeeperTestController(col, row, true, "TEST"))
                 {
-                    FinishKeeperTest(previousGoals, previousSaves, previousShotCount, StatusMessage);
+                    FinishKeeperTest(StatusMessage);
                     yield break;
                 }
 
                 if (!VerifyKeeperMotionContract("TEST"))
                 {
-                    FinishKeeperTest(previousGoals, previousSaves, previousShotCount, StatusMessage);
+                    FinishKeeperTest(StatusMessage);
                     yield break;
                 }
 
@@ -1569,7 +1623,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
         }
 
-        FinishKeeperTest(previousGoals, previousSaves, previousShotCount, "Test complete");
+        FinishKeeperTest("Test complete");
     }
 
     private IEnumerator TestTopKeeperZones()
@@ -1579,12 +1633,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             yield break;
         }
 
-        int previousGoals = goals;
-        int previousSaves = saves;
-        int previousShotCount = shotCount;
-        keeperTestMode = true;
-        keeperTestShotIndex = 0;
-        keeperTestShotTotal = 3;
+        BeginKeeperTest(3);
         for (int col = 0; col < 3; col++)
         {
             keeperTestShotIndex++;
@@ -1612,35 +1661,65 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
             if (shotTimedOut)
             {
-                FinishKeeperTest(previousGoals, previousSaves, previousShotCount, "TEST TOP timeout " + GridName(col, 0));
+                FinishKeeperTest("TEST TOP timeout " + GridName(col, 0));
                 yield break;
             }
 
             if (!VerifyKeeperTestController(col, 0, true, "TEST TOP"))
             {
-                FinishKeeperTest(previousGoals, previousSaves, previousShotCount, StatusMessage);
+                FinishKeeperTest(StatusMessage);
                 yield break;
             }
 
             if (!VerifyKeeperMotionContract("TEST TOP"))
             {
-                FinishKeeperTest(previousGoals, previousSaves, previousShotCount, StatusMessage);
+                FinishKeeperTest(StatusMessage);
                 yield break;
             }
 
             yield return new WaitForSecondsRealtime(0.2f);
         }
 
-        FinishKeeperTest(previousGoals, previousSaves, previousShotCount, "Top test complete");
+        FinishKeeperTest("Top test complete");
     }
 
-    private void FinishKeeperTest(int previousGoals, int previousSaves, int previousShotCount, string status)
+    private void BeginKeeperTest(int totalShots)
+    {
+        keeperTestMode = true;
+        keeperTestShotIndex = 0;
+        keeperTestShotTotal = totalShots;
+        keeperTestPreviousGoals = goals;
+        keeperTestPreviousSaves = saves;
+        keeperTestPreviousShotCount = shotCount;
+        keeperTestPreviousGoalStreak = goalStreak;
+        keeperTestPreviousSaveStreak = saveStreak;
+        for (int i = 0; i < shotHistoryResolved.Length; i++)
+        {
+            keeperTestPreviousHistoryResolved[i] = shotHistoryResolved[i];
+            keeperTestPreviousHistoryGoals[i] = shotHistoryGoals[i];
+        }
+    }
+
+    private void FinishKeeperTest(string status)
     {
         forceKeeperTestShot = false;
+        if (!keeperTestMode)
+        {
+            return;
+        }
+
         keeperTestMode = false;
-        goals = previousGoals;
-        saves = previousSaves;
-        shotCount = previousShotCount;
+        goals = keeperTestPreviousGoals;
+        saves = keeperTestPreviousSaves;
+        shotCount = keeperTestPreviousShotCount;
+        goalStreak = keeperTestPreviousGoalStreak;
+        saveStreak = keeperTestPreviousSaveStreak;
+        for (int i = 0; i < shotHistoryResolved.Length; i++)
+        {
+            shotHistoryResolved[i] = keeperTestPreviousHistoryResolved[i];
+            shotHistoryGoals[i] = keeperTestPreviousHistoryGoals[i];
+        }
+
         UpdateScore();
         SetStatus(status);
     }
@@ -1750,7 +1829,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
             cameraRig.position = ReadyCameraPosition();
             cameraRig.rotation = ReadyCameraRotation();
-            ball.Rotate(new Vector3(620f, 240f, aimSide * 140f) * Time.deltaTime, Space.World);
+            ball.Rotate(new Vector3(620f, 240f, aimSide * 140f) * Time.unscaledDeltaTime, Space.World);
             yield return null;
         }
 
@@ -1782,7 +1861,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     keeperAnimator.Update(0f);
                     poseFrozen = true;
                 }
-                float moveT = Smoother(Mathf.InverseLerp(0.04f, saved ? 0.58f : 0.54f, Mathf.Min(actionT, rootHoldT)));
+                float clampedRootT = Mathf.Min(actionT, rootHoldT);
+                bool lowSideDive = saved && MotionKeeperRow == 2 && MotionKeeperCol != 1;
+                float moveT = lowSideDive
+                    // Ballistic push-off: explode laterally early then decelerate into
+                    // the corner, instead of a slow symmetric glide that reads as a
+                    // sideways slide on ice.
+                    ? EaseOut(Mathf.InverseLerp(0.08f, 0.46f, clampedRootT), 2.4f)
+                    : Smoother(Mathf.InverseLerp(0.04f, saved ? 0.58f : 0.54f, clampedRootT));
                 keeper.position = Vector3.Lerp(rootFrom, rootTo, moveT);
                 keeper.rotation = Quaternion.Slerp(rotationFrom, rotationTo, moveT);
                 AnchorImportedKeeperVisibleModel();
@@ -1949,6 +2035,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private IEnumerator ReturnAllToReady(float duration)
     {
+        // Release the save ground lock before blending back to ready; keeping it set
+        // re-snaps the model to the ground every frame and nullifies the vertical blend.
+        keeperSaveGroundLock = false;
         Vector3 ballFrom = ball.position;
         Vector3 ballScaleFrom = ball.localScale;
         Quaternion ballRotationFrom = ball.rotation;
@@ -2095,8 +2184,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 {
                     if (TryGetActiveKeeperHandWorld(out Vector3 contactHandWorld))
                     {
-                        contact = contactHandWorld + AaBallCenterFromHandOffset();
-                        keeperBestSaveHandGap = Mathf.Min(keeperBestSaveHandGap, Vector3.Distance(contact, contactHandWorld));
+                        // Measure how far the planned contact point sits from the hand
+                        // before retargeting onto it, so the contract sees the real gap.
+                        Vector3 handBall = contactHandWorld + AaBallCenterFromHandOffset();
+                        keeperBestSaveHandGap = Mathf.Min(keeperBestSaveHandGap, Vector3.Distance(contact, handBall));
+                        contact = handBall;
                     }
                     palmLoad = contact + AaPalmLoadOffset();
                     deflect = catchAaSave ? AaCatchSettleWorld(contact, reboundSide) : AaDeflectWorld(contact, reboundSide);
@@ -2539,7 +2631,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        float actionT = Mathf.Clamp01((Time.time - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
+        float actionT = Mathf.Clamp01((Time.unscaledTime - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
         ApplyLowSideSaveGrounding(actionT);
         CheckKeeperHandContactContract(actionT);
         CheckKeeperGroundedSaveHoldContract(actionT);
@@ -2556,7 +2648,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float windowStart = contactT - 0.085f;
         float windowEnd = contactT + 0.16f;
         float maxGap = MaxKeeperHandContactGap();
-        if (actionT >= windowStart && actionT <= windowEnd && TryGetActiveKeeperHandWorld(out Vector3 handWorld))
+        // Only sample while the ball is still approaching; after contact the ball is
+        // retargeted onto the hand, which would mask the real gap with ~0 readings.
+        if (actionT >= windowStart && actionT <= contactT && TryGetActiveKeeperHandWorld(out Vector3 handWorld))
         {
             keeperBestSaveHandGap = Mathf.Min(keeperBestSaveHandGap, Vector3.Distance(ball.position, handWorld));
         }
@@ -2614,8 +2708,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             NoteKeeperMotionViolation("ground lift " + lift.ToString("0.00") + " exceeds " + maxGroundLift.ToString("0.00"));
         }
-
-        CheckLowSideSaveFootGroundContract(actionT);
     }
 
     private void ApplyKeeperPostAnimatorPose()
@@ -2625,7 +2717,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        float actionT = Mathf.Clamp01((Time.time - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
+        float actionT = Mathf.Clamp01((Time.unscaledTime - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
         ApplyLowSideSaveSettleMotion(actionT);
         ApplyLowSideSaveGrounding(actionT);
     }
@@ -2637,13 +2729,26 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return;
         }
 
-        PinLowSideSaveFeetForFinalPose(actionT);
-        if (actionT >= LowSaveHardGroundStartT)
+        // Lower the whole body onto the pitch while the frozen dive pose holds.
+        // Pinning individual feet while the body floated mid-air contorted the pose.
+        float weight = Smooth(Mathf.Clamp01(Mathf.InverseLerp(LowSaveSoftGroundStartT, LowSaveHardGroundStartT, actionT)));
+        LowerLowSideVisibleModelToGround(weight);
+    }
+
+    private void LowerLowSideVisibleModelToGround(float weight)
+    {
+        if (keeperVisibleModel == null || !TryGetVisibleBounds(keeperVisibleModel, out Bounds bounds))
         {
-            float pullWeight = Smooth(Mathf.Clamp01(Mathf.InverseLerp(LowSaveHardGroundStartT, 1f, actionT)));
-            PullLowSideVisibleModelToFootGround(pullWeight);
-            PinLowSideSaveFeetForFinalPose(1f);
+            return;
         }
+
+        float correctionY = (LowSaveFootGroundY - bounds.min.y) * Mathf.Clamp01(weight);
+        if (Mathf.Abs(correctionY) <= 0.002f)
+        {
+            return;
+        }
+
+        keeperVisibleModel.position += new Vector3(0f, correctionY, 0f);
     }
 
     private void ApplyLowSideSaveSettleMotion(float actionT)
@@ -2663,89 +2768,21 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         float side = GoalGridSide(MotionKeeperCol);
         float bodyDrop = Mathf.Sin(Mathf.Clamp01(Mathf.InverseLerp(0.62f, 0.9f, actionT)) * Mathf.PI) * settle;
-        keeperVisibleModel.position += new Vector3(side * 0.02f * settle, -0.015f * bodyDrop, -0.014f * settle);
+        // Amplitudes are doubled relative to the original tuning: that tuning was done
+        // while this pass accidentally ran twice per frame, so a single application
+        // needs 2x to look the same.
+        keeperVisibleModel.position += new Vector3(side * 0.04f * settle, -0.03f * bodyDrop, -0.028f * settle);
         keeperVisibleModel.rotation = Quaternion.Slerp(
             keeperVisibleModel.rotation,
             keeperVisibleModel.rotation * Quaternion.Euler(-2f * settle, 0f, -side * 2.5f * settle),
-            0.35f);
-    }
-
-    private void PullLowSideVisibleModelToFootGround(float weight)
-    {
-        if (keeperVisibleModel == null || !TryGetLowSideSaveMinFootY(out float minFootY))
-        {
-            return;
-        }
-
-        float correctionY = LowSaveFootBoneHoldY - minFootY;
-        if (correctionY >= -0.002f)
-        {
-            return;
-        }
-
-        keeperVisibleModel.position += new Vector3(0f, correctionY * Mathf.Clamp01(weight), 0f);
-    }
-
-    private void PinLowSideSaveFeetForFinalPose(float actionT)
-    {
-        if (MotionKeeperRow != 2
-            || MotionKeeperCol == 1
-            || actionT < LowSaveFootPinStartT
-            || keeperAnimator == null
-            || !keeperAnimator.isHuman)
-        {
-            return;
-        }
-
-        if (!TryGetLowSideLandingFoot(out HumanBodyBones landingBone, out _))
-        {
-            return;
-        }
-
-        HumanBodyBones trailingBone = landingBone == HumanBodyBones.LeftFoot ? HumanBodyBones.RightFoot : HumanBodyBones.LeftFoot;
-        float weight = Smooth(Mathf.Clamp01(Mathf.InverseLerp(LowSaveFootPinStartT, LowSaveFootPinFullT, actionT)));
-        PinLowSideSaveFootBone(landingBone, weight);
-        PinLowSideSaveFootBone(trailingBone, weight * 0.28f);
-    }
-
-    private void PinLowSideSaveFootBone(HumanBodyBones bone, float weight)
-    {
-        Transform foot = keeperAnimator.GetBoneTransform(bone);
-        if (foot == null)
-        {
-            return;
-        }
-
-        Vector3 position = foot.position;
-        position.y = Mathf.Lerp(position.y, LowSaveFootBoneHoldY, Mathf.Clamp01(weight));
-        foot.position = position;
+            0.58f);
     }
 
     private void ApplyKeeperLowSideFootIk()
     {
-        if (!ShouldPinLowSideSaveFeet())
-        {
-            ClearKeeperFootIk();
-            return;
-        }
-
-        float actionT = Mathf.Clamp01((Time.time - keeperActionStartedAt) / Mathf.Max(0.1f, keeperActionDuration));
-        float pinWeight = Smooth(Mathf.Clamp01(Mathf.InverseLerp(LowSaveFootPinStartT, LowSaveFootPinFullT, actionT)));
-        if (pinWeight <= 0.001f)
-        {
-            ClearKeeperFootIk();
-            return;
-        }
-
-        if (!TryGetLowSideLandingFoot(out _, out AvatarIKGoal landingGoal))
-        {
-            ClearKeeperFootIk();
-            return;
-        }
-
-        AvatarIKGoal trailingGoal = landingGoal == AvatarIKGoal.LeftFoot ? AvatarIKGoal.RightFoot : AvatarIKGoal.LeftFoot;
-        ApplyKeeperFootIkGoal(landingGoal, pinWeight);
-        ApplyKeeperFootIkGoal(trailingGoal, pinWeight * 0.28f);
+        // Foot pinning was removed: the whole body grounds via
+        // LowerLowSideVisibleModelToGround instead.
+        ClearKeeperFootIk();
     }
 
     private bool ShouldPinLowSideSaveFeet()
@@ -2760,51 +2797,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             && keeperAnimator.isHuman;
     }
 
-    private void ApplyKeeperFootIkGoal(AvatarIKGoal goal, float weight)
-    {
-        HumanBodyBones footBone = goal == AvatarIKGoal.LeftFoot ? HumanBodyBones.LeftFoot : HumanBodyBones.RightFoot;
-        Transform foot = keeperAnimator.GetBoneTransform(footBone);
-        if (foot == null)
-        {
-            return;
-        }
-
-        Vector3 position = foot.position;
-        position.y = Mathf.Lerp(position.y, LowSaveFootGroundY, Mathf.Clamp01(weight));
-        keeperAnimator.SetIKPositionWeight(goal, Mathf.Clamp01(weight));
-        keeperAnimator.SetIKRotationWeight(goal, Mathf.Clamp01(weight) * 0.45f);
-        keeperAnimator.SetIKPosition(goal, position);
-        keeperAnimator.SetIKRotation(goal, foot.rotation);
-    }
-
-    private bool TryGetLowSideLandingFoot(out HumanBodyBones landingBone, out AvatarIKGoal landingGoal)
-    {
-        landingBone = HumanBodyBones.LeftFoot;
-        landingGoal = AvatarIKGoal.LeftFoot;
-        if (keeperAnimator == null || !keeperAnimator.isHuman)
-        {
-            return false;
-        }
-
-        Transform leftFoot = keeperAnimator.GetBoneTransform(HumanBodyBones.LeftFoot);
-        Transform rightFoot = keeperAnimator.GetBoneTransform(HumanBodyBones.RightFoot);
-        if (leftFoot == null && rightFoot == null)
-        {
-            return false;
-        }
-
-        if (rightFoot == null || leftFoot != null && leftFoot.position.y <= rightFoot.position.y)
-        {
-            landingBone = HumanBodyBones.LeftFoot;
-            landingGoal = AvatarIKGoal.LeftFoot;
-            return true;
-        }
-
-        landingBone = HumanBodyBones.RightFoot;
-        landingGoal = AvatarIKGoal.RightFoot;
-        return true;
-    }
-
     private void ClearKeeperFootIk()
     {
         if (keeperAnimator == null)
@@ -2816,52 +2808,6 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         keeperAnimator.SetIKRotationWeight(AvatarIKGoal.LeftFoot, 0f);
         keeperAnimator.SetIKPositionWeight(AvatarIKGoal.RightFoot, 0f);
         keeperAnimator.SetIKRotationWeight(AvatarIKGoal.RightFoot, 0f);
-    }
-
-    private void CheckLowSideSaveFootGroundContract(float actionT)
-    {
-        if (MotionKeeperRow != 2 || MotionKeeperCol == 1 || actionT < 0.99f)
-        {
-            return;
-        }
-
-        ApplyLowSideSaveGrounding(actionT);
-        if (!TryGetLowSideSaveMinFootY(out float minFootY))
-        {
-            return;
-        }
-
-        if (minFootY > LowSaveMaxFootY)
-        {
-            NoteKeeperMotionViolation("low foot lift " + minFootY.ToString("0.00") + " exceeds " + LowSaveMaxFootY.ToString("0.00"));
-        }
-    }
-
-    private bool TryGetLowSideSaveMinFootY(out float minFootY)
-    {
-        minFootY = float.PositiveInfinity;
-        if (keeperAnimator == null || !keeperAnimator.isHuman)
-        {
-            return false;
-        }
-
-        Transform leftFoot = keeperAnimator.GetBoneTransform(HumanBodyBones.LeftFoot);
-        Transform rightFoot = keeperAnimator.GetBoneTransform(HumanBodyBones.RightFoot);
-        if (leftFoot == null && rightFoot == null)
-        {
-            return false;
-        }
-
-        if (leftFoot != null)
-        {
-            minFootY = Mathf.Min(minFootY, leftFoot.position.y);
-        }
-        if (rightFoot != null)
-        {
-            minFootY = Mathf.Min(minFootY, rightFoot.position.y);
-        }
-
-        return !float.IsPositiveInfinity(minFootY);
     }
 
     private bool TryGetActiveKeeperHandWorld(out Vector3 handWorld)
@@ -3664,13 +3610,24 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void PlayKeeperController(RuntimeAnimatorController controller)
     {
-        if (keeperAnimator == null || controller == null)
+        if (keeperAnimator == null)
         {
             return;
         }
 
+        // Restore playback even without a controller so a missing idle reference
+        // cannot leave the animator frozen at speed 0 after a dive.
         keeperAnimator.enabled = true;
         keeperAnimator.speed = 1f;
+        // Ball flight, dive timing and the contact contract all run on the unscaled
+        // clock; drive the animation with the same clock so an editor hitch cannot
+        // desync the hand from the arriving ball.
+        keeperAnimator.updateMode = AnimatorUpdateMode.UnscaledTime;
+        if (controller == null)
+        {
+            return;
+        }
+
         keeperAnimator.runtimeAnimatorController = controller;
         EnsureKeeperIkDriver();
         keeperAnimator.Rebind();
@@ -3756,7 +3713,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     ballDuration = center ? 1.16f : 1.24f,
                     resultHold = center ? 2.14f : 2.32f,
                     poseHoldT = center ? 0.66f : 0.78f,
-                    contactTime = center ? 0.3f : 0.35f,
+                    // Measured: active hand reaches the aim point at actionT ~0.28 (center) / ~0.58 (side).
+                    contactTime = center ? 0.28f : 0.58f,
                     punchWindow = center ? 0.15f : 0.18f,
                     maxHandGap = center ? 0.24f : 0.26f,
                     maxHandReach = center ? 0.68f : 0.72f,
@@ -3775,8 +3733,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     keeperContactXScale = center ? 0.12f : 0.68f,
                     keeperContactYAdd = center ? 0.42f : 0.48f,
                     keeperContactZOffset = -0.86f,
-                    ballContactZ = 4.74f,
-                    ballContactYAdd = 0.14f,
+                    // Measured hand plane: z 4.45 (side) / 4.25 (center); row 0 applies a further -0.08 z offset.
+                    ballContactZ = center ? 4.33f : 4.53f,
+                    ballContactYAdd = center ? 0.03f : 0.1f,
                     ballCenterYFromHand = 0.03f
                 };
             }
@@ -3789,7 +3748,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     ballDuration = 1.08f,
                     resultHold = center ? 1.96f : 2.08f,
                     poseHoldT = center ? 0.6f : 0.72f,
-                    contactTime = center ? 0.27f : 0.31f,
+                    // Measured: active hand reaches the aim point at actionT ~0.24 (center) / ~0.60 (side).
+                    contactTime = center ? 0.24f : 0.6f,
                     punchWindow = center ? 0.13f : 0.17f,
                     maxHandGap = center ? 0.22f : 0.23f,
                     maxHandReach = center ? 0.64f : 0.68f,
@@ -3808,8 +3768,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     keeperContactXScale = center ? 0.12f : 0.82f,
                     keeperContactYAdd = center ? 0.28f : 0.06f,
                     keeperContactZOffset = -0.86f,
-                    ballContactZ = 4.66f,
-                    ballContactYAdd = 0f,
+                    // Measured hand contact: (+/-2.09, 1.68, 4.30) side / (0, 1.38, 4.23) center.
+                    ballContactZ = center ? 4.23f : 4.3f,
+                    ballContactYAdd = center ? -0.45f : -0.15f,
                     ballCenterYFromHand = 0.015f
                 };
             }
@@ -3819,8 +3780,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 actionDuration = center ? 1.06f : 1.18f,
                 ballDuration = center ? 1.04f : 1.1f,
                 resultHold = center ? 1.98f : 2.18f,
-                poseHoldT = center ? 0.62f : 0.62f,
-                contactTime = center ? 0.26f : 0.32f,
+                // Side dives play most of the clip so the keeper descends to the ground
+                // through the animation instead of freezing airborne and being yanked
+                // straight down by the grounding pass.
+                poseHoldT = center ? 0.62f : 0.85f,
+                // Measured: hand reaches the low corner at actionT ~0.60, just before the dive pose freeze.
+                contactTime = center ? 0.26f : 0.6f,
                 punchWindow = center ? 0.16f : 0.18f,
                 maxHandGap = center ? 0.21f : 0.26f,
                 maxHandReach = center ? 0.62f : 0.68f,
@@ -3839,8 +3804,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 keeperContactXScale = center ? 0.12f : 0.74f,
                 keeperContactYAdd = center ? 0.04f : -0.06f,
                 keeperContactZOffset = -0.72f,
-                ballContactZ = 4.58f,
-                ballContactYAdd = 0f,
+                // Measured hand contact: (+/-2.27, 1.14, 3.86) side / (0, ~1.2, ~4.05) center.
+                ballContactZ = center ? 4.05f : 3.95f,
+                ballContactYAdd = center ? 0f : -0.03f,
                 ballCenterYFromHand = 0.015f
             };
         }
@@ -5445,7 +5411,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private Vector3 ClampAaCatchBallToHand(Vector3 plannedPosition, float t, float contactTime)
     {
-        if (!UseAaAnimatedKeeper || MotionKeeperRow == 0 || !TryGetActiveKeeperHandWorld(out Vector3 handWorld))
+        if (t < contactTime || !UseAaAnimatedKeeper || MotionKeeperRow == 0 || !TryGetActiveKeeperHandWorld(out Vector3 handWorld))
         {
             return plannedPosition;
         }
@@ -5604,6 +5570,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             keeperSprite.localScale = new Vector3(1.35f, 1.95f, 1f);
             SetKeeperSpriteFrame(0, 0, false);
         }
+        if (keeperIdleController == null)
+        {
+            keeperIdleController = LoadAaKeeperController("AA_Soccer_Goal_Idel");
+        }
+
         PlayKeeperController(keeperIdleController);
 
         SetLocalRotation(keeperLeftArm, 0f, 0f, 0f);

@@ -31,12 +31,12 @@ checks = {
   "saved ball uses smoother load" => fly_ball.include?("Vector3.Lerp(contact, palmLoad, Smoother(loadT))"),
   "miss result waits for full banner" => source.include?(": Mathf.Max(UseAaAnimatedKeeper ? aaProfile.resultHold : 1.4f, resultBannerUntil - Time.time + 0.28f);"),
   "catch saves clamp ball to active hand" => source.include?("ball.position = ClampAaCatchBallToHand(ball.position, t, contactTime);"),
-  "low side foot pin starts before final frame" => source.include?("private const float LowSaveFootPinStartT = 0.68f;"),
+  "low side saves ground the whole body" => source.include?("private void LowerLowSideVisibleModelToGround(float weight)"),
   "low side saves use down clips instead of hold-ball clips" => source.include?("return \"AA_Soccer_Goal_Down_LD\";") &&
     source.include?("return \"AA_Soccer_Goal_Down_RD\";") &&
     !source.include?("AA_Soccer_Goal_HoldBall_LD") &&
     !source.include?("AA_Soccer_Goal_HoldBall_RD"),
-  "low side saves freeze on dive pose" => source.include?("poseHoldT = center ? 0.62f : 0.62f,"),
+  "low side saves play the dive down to the ground" => source.include?("poseHoldT = center ? 0.62f : 0.85f,"),
   "low side saves keep natural lateral drive" => source.include?("rootSide = center ? 0f : 1.06f,")
 }
 
