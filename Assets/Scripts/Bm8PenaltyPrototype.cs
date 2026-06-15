@@ -497,7 +497,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         int avatarSide = KeeperAvatarSideForGoalColumn(MotionKeeperCol);
         Vector3 contact = AimSaveContactWorld();
         float spread = MotionKeeperRow == 0 ? 0.12f : MotionKeeperRow == 2 ? 0.15f : 0.17f;
-        float maxAssist = MotionKeeperRow == 0 ? 0.3f : MotionKeeperRow == 2 ? 0.2f : 0.24f;
+        float maxAssist = MotionKeeperCol == 1 ? 0.24f : profile.handIkMax;
         float ikWeight = Mathf.Lerp(0f, Mathf.Min(profile.handIkMax, maxAssist), weight);
 
         // The avatar is rotated 180 degrees: its left hand lives on world +x, right on -x.
@@ -3789,7 +3789,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     contactTime = center ? 0.28f : 0.58f,
                     punchWindow = center ? 0.15f : 0.18f,
                     maxHandGap = center ? 0.24f : 0.26f,
-                    maxHandReach = center ? 0.68f : 0.72f,
+                    maxHandReach = center ? 0.68f : 0.86f,
                     handIkMin = 0.28f,
                     handIkMax = center ? 0.42f : 0.46f,
                     shotArc = 0.5f,
@@ -3824,7 +3824,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     contactTime = center ? 0.24f : 0.6f,
                     punchWindow = center ? 0.13f : 0.17f,
                     maxHandGap = center ? 0.22f : 0.23f,
-                    maxHandReach = center ? 0.64f : 0.68f,
+                    maxHandReach = center ? 0.64f : 0.94f,
                     handIkMin = 0.52f,
                     handIkMax = center ? 0.68f : 0.72f,
                     shotArc = 0.34f,
@@ -3860,7 +3860,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 contactTime = center ? 0.26f : 0.6f,
                 punchWindow = center ? 0.16f : 0.18f,
                 maxHandGap = center ? 0.21f : 0.26f,
-                maxHandReach = center ? 0.62f : 0.68f,
+                maxHandReach = center ? 0.62f : 1.12f,
                 handIkMin = 0.5f,
                 handIkMax = center ? 0.66f : 0.72f,
                 shotArc = 0.18f,

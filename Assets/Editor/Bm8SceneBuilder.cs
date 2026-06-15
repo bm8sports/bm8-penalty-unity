@@ -110,7 +110,7 @@ public static class Bm8SceneBuilder
 
     private static void BuildReportSummary(string label, string outputPath, BuildReport report)
     {
-        if (report.summary.result == BuildResult.Succeeded && File.Exists(outputPath))
+        if (report.summary.result == BuildResult.Succeeded && (File.Exists(outputPath) || Directory.Exists(outputPath)))
         {
             Debug.Log("BM8 " + label + " build complete: " + report.summary.outputPath);
             EditorUtility.RevealInFinder(report.summary.outputPath);
@@ -123,6 +123,8 @@ public static class Bm8SceneBuilder
     [MenuItem("BM8/Validate Goalkeeper Animation Setup")]
     public static void ValidateGoalkeeperAnimationSetup()
     {
+        OpenPrototypeScene();
+
         int issues = 0;
         string report = "BM8 goalkeeper animation validation:\n";
 
@@ -456,6 +458,7 @@ public static class Bm8SceneBuilder
                     state = RunnerState.Idle;
                     prototype = null;
                     savedStatusStartedAt = -1d;
+                    QuitBatchmodeRuntimeTest(0);
                     return;
                 }
 
@@ -594,6 +597,15 @@ public static class Bm8SceneBuilder
             state = RunnerState.Idle;
             prototype = null;
             savedStatusStartedAt = -1d;
+            QuitBatchmodeRuntimeTest(1);
+        }
+
+        private static void QuitBatchmodeRuntimeTest(int exitCode)
+        {
+            if (Application.isBatchMode)
+            {
+                EditorApplication.Exit(exitCode);
+            }
         }
     }
 
