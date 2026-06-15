@@ -74,7 +74,28 @@ public static class Bm8SceneBuilder
             BuildTarget.StandaloneWindows64);
     }
 
+    [MenuItem("BM8/Build WebGL Player")]
+    public static void BuildWebGLPlayer()
+    {
+        if (!BuildPipeline.IsBuildTargetSupported(BuildTargetGroup.WebGL, BuildTarget.WebGL))
+        {
+            Debug.LogError("BM8 WebGL build support is not installed for this Unity editor. Install the WebGL Build Support module for Unity 6000.4.8f1 in Unity Hub, then run BM8/Build WebGL Player again.");
+            return;
+        }
+
+        BuildPlayer(
+            "WebGL",
+            Path.GetFullPath("Builds/WebGL"),
+            BuildTargetGroup.WebGL,
+            BuildTarget.WebGL);
+    }
+
     private static void BuildStandalonePlayer(string label, string outputPath, BuildTarget target)
+    {
+        BuildPlayer(label, outputPath, BuildTargetGroup.Standalone, target);
+    }
+
+    private static void BuildPlayer(string label, string outputPath, BuildTargetGroup targetGroup, BuildTarget target)
     {
         if (EditorApplication.isPlayingOrWillChangePlaymode)
         {
@@ -88,13 +109,13 @@ public static class Bm8SceneBuilder
             new EditorBuildSettingsScene("Assets/Scenes/BM8PenaltyPrototype.unity", true)
         };
 
-        if (!EditorUserBuildSettings.SwitchActiveBuildTarget(BuildTargetGroup.Standalone, target))
+        if (!EditorUserBuildSettings.SwitchActiveBuildTarget(targetGroup, target))
         {
             Debug.LogError("BM8 " + label + " build failed: Unity could not switch to " + target + ".");
             return;
         }
 
-        string buildFolder = Path.GetDirectoryName(outputPath);
+        string buildFolder = target == BuildTarget.WebGL ? outputPath : Path.GetDirectoryName(outputPath);
         Directory.CreateDirectory(buildFolder);
 
         var buildOptions = new BuildPlayerOptions
