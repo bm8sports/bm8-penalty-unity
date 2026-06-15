@@ -10,6 +10,13 @@ using UnityEditor;
 
 public sealed class Bm8PenaltyPrototype : MonoBehaviour
 {
+    private enum GameDifficulty
+    {
+        Easy,
+        Normal,
+        Hard
+    }
+
     private static readonly bool UseAaAnimatedKeeper = true;
     private static readonly bool UseGeneratedKeeperSpriteSheet = false;
     private static readonly bool UseArcadeVideoCamera = true;
@@ -25,6 +32,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private const string UploadedStylizedKeeperResource = "BM8Keeper/ThuMon/Goalkeeper_TPose";
     private const string Bm8KeeperBaseTextureResource = "BM8Keeper/ThuMon/textures/Goalkeeper_Base_color";
     private const string AaGoalkeeperControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
+    private const string RuntimeTestRequestKey = "BM8.KeeperRuntimeTest.Requested";
 
     [Header("Scene Objects")]
     [SerializeField] private Transform ball;
@@ -123,6 +131,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private int shotCount;
     private int goalStreak;
     private int saveStreak;
+    private bool gameStarted;
+    private bool roundComplete;
+    private const int RoundShotLimit = 5;
+    private GameDifficulty difficulty = GameDifficulty.Normal;
+    private AudioSource productAudio;
+    private AudioClip clickClip;
+    private AudioClip kickClip;
+    private AudioClip goalClip;
+    private AudioClip saveClip;
     private float aimX;
     private float aimY = 2.1f;
     private float saveReboundSide = 1f;
@@ -237,12 +254,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         EnsureSaveContactStreak();
         EnsureResultGoalFlash();
         EnsureGoalNetImpact();
+        EnsureProductAudio();
         HideSolidGoalNetBackdrop();
         EnsureArcadeBackdrop();
         CreateNineTargetGrid();
         HideLegacyTextOverlay();
         UpdateScore();
-        SetStatus(UseAaAnimatedKeeper ? "Tap goal" : "Tap goal");
+        gameStarted = IsRuntimeTestRequested();
+        SetStatus(gameStarted ? ReadyStatusText() : "Press start");
     }
 
     private void Update()
@@ -260,6 +279,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         UpdateResultGoalFlash();
         UpdateArcadeBackdropPulse();
         RunShotWatchdog();
+
+        if ((!gameStarted || roundComplete) && !keeperTestMode)
+        {
+            HandleProductMenuInput();
+            return;
+        }
 
         if (shooting && Time.realtimeSinceStartup - shootingStartedRealtime > ShotWatchdogSeconds)
         {
@@ -283,7 +308,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.F10))
         {
             showDebugControls = !showDebugControls;
-            SetStatus(showDebugControls ? "Debug controls" : "Tap goal");
+            SetStatus(showDebugControls ? "Debug controls" : ReadyStatusText());
             return;
         }
 
@@ -463,7 +488,29 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
         float animatedReach = Vector3.Distance(upperArm.position, hand.position);
-        float maxReach = Mathf.Clamp(animatedReach + (MotionKeeperRow == 0 ? 0.035f : 0.025f), 0.48f, profile.maxHandReach);
+        float reachAssist = MotionKeeperRow == 0 ? 0.035f : 0.025f;
+        if (MotionKeeperRow == 0 && MotionKeeperCol == 1)
+        {
+            // Top-center catch raises both hands above the idle clip; it needs more
+            // pre-contact reach than side tips or body-height catches.
+            reachAssist = 0.65f;
+        }
+        else if (MotionKeeperRow == 0)
+        {
+            // Top-corner tips are close to the contract threshold; a small lead keeps
+            // the glove on the ball without changing the dive root motion.
+            reachAssist = 0.25f;
+        }
+
+        if (MotionKeeperRow == 2 && MotionKeeperCol != 1)
+        {
+            // Low side dives need the hand to lead the clip slightly before contact;
+            // otherwise the ball reaches the corner while the animated arm is still
+            // tucked under the torso.
+            reachAssist = 0.34f;
+        }
+
+        float maxReach = Mathf.Clamp(animatedReach + reachAssist, 0.48f, profile.maxHandReach);
         if (reachLength <= maxReach)
         {
             return target;
@@ -497,7 +544,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         int avatarSide = KeeperAvatarSideForGoalColumn(MotionKeeperCol);
         Vector3 contact = AimSaveContactWorld();
         float spread = MotionKeeperRow == 0 ? 0.12f : MotionKeeperRow == 2 ? 0.15f : 0.17f;
-        float maxAssist = MotionKeeperCol == 1 ? 0.24f : profile.handIkMax;
+        float maxAssist = MotionKeeperCol == 1 && MotionKeeperRow != 0 ? 0.24f : profile.handIkMax;
         float ikWeight = Mathf.Lerp(0f, Mathf.Min(profile.handIkMax, maxAssist), weight);
 
         // The avatar is rotated 180 degrees: its left hand lives on world +x, right on -x.
@@ -575,6 +622,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         DrawRuntimeTestButton();
         RunShotWatchdog();
 
+        if ((!gameStarted || roundComplete) && !keeperTestMode)
+        {
+            DrawProductOverlay();
+            return;
+        }
+
         if (shooting || !TryGetGoalGuiRect(out Rect goalRect))
         {
             return;
@@ -634,7 +687,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         GUI.Label(new Rect(width * 0.34f, topPad + 6f, width * 0.32f, topBarHeight * 0.26f), status.ToUpperInvariant(), title);
         string scoreLine = keeperTestMode
             ? "TEST " + keeperTestShotIndex + " / " + keeperTestShotTotal
-            : "GOALS " + goals + "   SAVES " + saves + "   SHOTS " + shotCount;
+            : DifficultyLabel() + "   GOALS " + goals + "   SAVES " + saves + "   SHOTS " + shotCount + "/" + RoundShotLimit;
         GUI.Label(new Rect(width * 0.34f, topPad + topBarHeight * 0.36f, width * 0.32f, topBarHeight * 0.22f), scoreLine, small);
         DrawShotHistoryLights(width, topPad, topBarHeight);
 
@@ -1196,6 +1249,87 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         GUI.backgroundColor = previousColor;
     }
 
+    private void DrawProductOverlay()
+    {
+        float width = Screen.width;
+        float height = Screen.height;
+        FillGuiRect(new Rect(0f, 0f, width, height), new Color(0.015f, 0.018f, 0.024f, 0.72f));
+        Rect panel = new Rect(width * 0.27f, height * 0.19f, width * 0.46f, height * 0.56f);
+        FillGuiRect(panel, new Color(0.045f, 0.047f, 0.055f, 0.94f));
+        FillGuiRect(new Rect(panel.x, panel.y, panel.width, 5f), new Color(1f, 0.18f, 0.12f, 0.95f));
+
+        GUIStyle brand = ProductLabelStyle(Mathf.RoundToInt(Mathf.Clamp(height * 0.07f, 34f, 64f)), Color.white);
+        GUIStyle sub = ProductLabelStyle(Mathf.RoundToInt(Mathf.Clamp(height * 0.027f, 13f, 20f)), new Color(1f, 0.86f, 0.2f));
+        GUIStyle body = ProductLabelStyle(Mathf.RoundToInt(Mathf.Clamp(height * 0.024f, 12f, 17f)), new Color(0.9f, 0.92f, 0.96f));
+        GUIStyle button = ProductButtonStyle(Mathf.RoundToInt(Mathf.Clamp(height * 0.03f, 14f, 20f)));
+
+        GUI.Label(new Rect(panel.x, panel.y + height * 0.055f, panel.width, height * 0.09f), "BM8 PENALTY", brand);
+        GUI.Label(new Rect(panel.x, panel.y + height * 0.14f, panel.width, height * 0.04f), "ARCADE SHOOTOUT  v1.0", sub);
+
+        if (roundComplete)
+        {
+            string summary = "FINAL SCORE  " + goals + " / " + RoundShotLimit + "   RATE " + Mathf.RoundToInt((goals / Mathf.Max(1f, (float)shotCount)) * 100f) + "%";
+            GUI.Label(new Rect(panel.x, panel.y + height * 0.22f, panel.width, height * 0.05f), summary, body);
+            GUI.Label(new Rect(panel.x, panel.y + height * 0.27f, panel.width, height * 0.04f), ResultGrade(), sub);
+        }
+        else
+        {
+            GUI.Label(new Rect(panel.x + panel.width * 0.12f, panel.y + height * 0.22f, panel.width * 0.76f, height * 0.08f), "Pick five shots. Beat the keeper. Corners pay more.", body);
+        }
+
+        float buttonW = panel.width * 0.24f;
+        float buttonY = panel.y + height * 0.34f;
+        DrawDifficultyButton(new Rect(panel.x + panel.width * 0.12f, buttonY, buttonW, 38f), GameDifficulty.Easy, button);
+        DrawDifficultyButton(new Rect(panel.x + panel.width * 0.38f, buttonY, buttonW, 38f), GameDifficulty.Normal, button);
+        DrawDifficultyButton(new Rect(panel.x + panel.width * 0.64f, buttonY, buttonW, 38f), GameDifficulty.Hard, button);
+
+        Rect startRect = new Rect(panel.x + panel.width * 0.25f, panel.y + height * 0.45f, panel.width * 0.5f, 48f);
+        GUI.backgroundColor = new Color(0.88f, 0.08f, 0.055f, 1f);
+        if (GUI.Button(startRect, roundComplete ? "PLAY AGAIN" : "START", button))
+        {
+            StartNewRound();
+        }
+        GUI.backgroundColor = Color.white;
+
+        GUI.Label(new Rect(panel.x, panel.y + panel.height - 48f, panel.width, 24f), "Click goal grid or press keypad 1-9", body);
+    }
+
+    private void DrawDifficultyButton(Rect rect, GameDifficulty value, GUIStyle style)
+    {
+        Color previous = GUI.backgroundColor;
+        GUI.backgroundColor = difficulty == value ? new Color(1f, 0.84f, 0.16f, 1f) : new Color(0.12f, 0.12f, 0.14f, 1f);
+        if (GUI.Button(rect, value.ToString().ToUpperInvariant(), style))
+        {
+            difficulty = value;
+            PlayProductSound(clickClip);
+        }
+        GUI.backgroundColor = previous;
+    }
+
+    private static GUIStyle ProductLabelStyle(int fontSize, Color color)
+    {
+        return new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            fontSize = fontSize,
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = color }
+        };
+    }
+
+    private static GUIStyle ProductButtonStyle(int fontSize)
+    {
+        return new GUIStyle(GUI.skin.button)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            fontSize = fontSize,
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = Color.white },
+            hover = { textColor = Color.white },
+            active = { textColor = Color.white }
+        };
+    }
+
     private void RunShotWatchdog()
     {
         if (!shooting)
@@ -1228,6 +1362,134 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         resultBannerStartedAt = Time.time;
         resultBannerUntil = Time.time + 1.7f;
         ShowResultGoalFlash(color);
+    }
+
+    private void HandleProductMenuInput()
+    {
+        if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
+        {
+            difficulty = GameDifficulty.Easy;
+            PlayProductSound(clickClip);
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))
+        {
+            difficulty = GameDifficulty.Normal;
+            PlayProductSound(clickClip);
+        }
+        else if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3))
+        {
+            difficulty = GameDifficulty.Hard;
+            PlayProductSound(clickClip);
+        }
+
+        if (Input.GetKeyDown(KeyCode.Return) || Input.GetKeyDown(KeyCode.Space))
+        {
+            StartNewRound();
+        }
+    }
+
+    private void StartNewRound()
+    {
+        PlayProductSound(clickClip);
+        StopAllCoroutines();
+        gameStarted = true;
+        roundComplete = false;
+        shooting = false;
+        keeperActionActive = false;
+        goals = 0;
+        saves = 0;
+        shotCount = 0;
+        goalStreak = 0;
+        saveStreak = 0;
+        for (int i = 0; i < shotHistoryResolved.Length; i++)
+        {
+            shotHistoryResolved[i] = false;
+            shotHistoryGoals[i] = false;
+        }
+        ForceReadyReset();
+        UpdateScore();
+        SetStatus(ReadyStatusText());
+    }
+
+    private void EnsureProductAudio()
+    {
+        Transform audioHost = cameraRig != null ? cameraRig : transform;
+        productAudio = audioHost.GetComponent<AudioSource>();
+        if (productAudio == null)
+        {
+            productAudio = audioHost.gameObject.AddComponent<AudioSource>();
+        }
+
+        productAudio.playOnAwake = false;
+        productAudio.spatialBlend = 0f;
+        productAudio.volume = 0.78f;
+        clickClip = BuildToneClip("BM8 Click", 660f, 0.055f, 0.16f);
+        kickClip = BuildToneClip("BM8 Kick", 118f, 0.14f, 0.34f);
+        goalClip = BuildToneClip("BM8 Goal", 740f, 0.28f, 0.32f);
+        saveClip = BuildToneClip("BM8 Save", 260f, 0.22f, 0.3f);
+    }
+
+    private static AudioClip BuildToneClip(string name, float frequency, float duration, float volume)
+    {
+        const int sampleRate = 44100;
+        int sampleCount = Mathf.Max(1, Mathf.RoundToInt(sampleRate * duration));
+        float[] samples = new float[sampleCount];
+        for (int i = 0; i < sampleCount; i++)
+        {
+            float t = i / (float)sampleRate;
+            float life = 1f - i / Mathf.Max(1f, sampleCount - 1f);
+            float envelope = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(i / (sampleRate * 0.012f))) * life * life;
+            float harmonic = Mathf.Sin(t * frequency * Mathf.PI * 2f) + Mathf.Sin(t * frequency * 2.01f * Mathf.PI * 2f) * 0.32f;
+            samples[i] = harmonic * envelope * volume;
+        }
+
+        AudioClip clip = AudioClip.Create(name, sampleCount, 1, sampleRate, false);
+        clip.SetData(samples, 0);
+        return clip;
+    }
+
+    private void PlayProductSound(AudioClip clip)
+    {
+        if (productAudio != null && clip != null)
+        {
+            productAudio.PlayOneShot(clip);
+        }
+    }
+
+    private string ReadyStatusText()
+    {
+        return "Tap goal";
+    }
+
+    private static bool IsRuntimeTestRequested()
+    {
+#if UNITY_EDITOR
+        return EditorPrefs.GetBool(RuntimeTestRequestKey, false);
+#else
+        return false;
+#endif
+    }
+
+    private string DifficultyLabel()
+    {
+        return difficulty.ToString().ToUpperInvariant();
+    }
+
+    private string ResultGrade()
+    {
+        if (goals >= 5)
+        {
+            return "PERFECT RUN";
+        }
+        if (goals >= 4)
+        {
+            return "SHARP FINISHER";
+        }
+        if (goals >= 3)
+        {
+            return "SOLID ROUND";
+        }
+        return "RUN IT BACK";
     }
 
     private static string StreakLabel(int streak, string label)
@@ -1391,7 +1653,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     public void Shoot()
     {
-        if (!shooting)
+        if (!gameStarted && !keeperTestMode)
+        {
+            return;
+        }
+
+        if (!shooting && !roundComplete)
         {
             StartCoroutine(ShootRoutine());
         }
@@ -1510,6 +1777,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         yield return RunUp(playerStart, runTarget, 0.92f);
 
         SetStatus("Strike");
+        PlayProductSound(kickClip);
         yield return PlantAndKick(0.58f);
 
         Vector3 target = new Vector3(aimX, ShotTargetY(power), 5.15f);
@@ -1549,6 +1817,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             goalStreak = 0;
             RecordShotHistory(false);
             ShowResultBanner("SAVED", new Color(0.1f, 0.55f, 1f));
+            PlayProductSound(saveClip);
         }
         else
         {
@@ -1557,6 +1826,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             saveStreak = 0;
             RecordShotHistory(true);
             ShowResultBanner("GOAL", new Color(1f, 0.2f, 0.12f));
+            PlayProductSound(goalClip);
         }
 
         UpdateScore();
@@ -1573,9 +1843,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             : Mathf.Max(UseAaAnimatedKeeper ? aaProfile.resultHold : 1.4f, resultBannerUntil - Time.time + 0.28f);
         yield return new WaitForSecondsRealtime(resultHold);
         yield return ReturnAllToReady(save ? 0.42f : 0.28f);
-        SetStatus("Tap goal");
         keeperActionActive = false;
         shooting = false;
+        if (!keeperTestMode && shotCount >= RoundShotLimit)
+        {
+            roundComplete = true;
+            SetStatus("Round complete");
+        }
+        else
+        {
+            SetStatus(ReadyStatusText());
+        }
     }
 
     private IEnumerator TestAllKeeperZones()
@@ -3789,9 +4067,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                     contactTime = center ? 0.28f : 0.58f,
                     punchWindow = center ? 0.15f : 0.18f,
                     maxHandGap = center ? 0.24f : 0.26f,
-                    maxHandReach = center ? 0.68f : 0.86f,
+                    maxHandReach = center ? 1.4f : 1.2f,
                     handIkMin = 0.28f,
-                    handIkMax = center ? 0.42f : 0.46f,
+                    handIkMax = center ? 1f : 0.7f,
                     shotArc = 0.5f,
                     deflectArc = center ? 0.42f : 0.46f,
                     rootSide = center ? 0f : 1.78f,
@@ -3860,9 +4138,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 contactTime = center ? 0.26f : 0.6f,
                 punchWindow = center ? 0.16f : 0.18f,
                 maxHandGap = center ? 0.21f : 0.26f,
-                maxHandReach = center ? 0.62f : 1.12f,
+                maxHandReach = center ? 0.62f : 1.32f,
                 handIkMin = 0.5f,
-                handIkMax = center ? 0.66f : 0.72f,
+                handIkMax = center ? 0.66f : 0.9f,
                 shotArc = 0.18f,
                 deflectArc = center ? 0.28f : 0.34f,
                 rootSide = center ? 0f : 1.06f,
@@ -5165,7 +5443,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private void PickKeeperGrid()
     {
-        float readChance = UseAaAnimatedKeeper ? 0.62f : 0.5f;
+        float readChance = DifficultyReadChance();
         if (UnityEngine.Random.value < readChance)
         {
             keeperCol = aimCol;
@@ -5188,7 +5466,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return false;
         }
 
-        float chance = UseAaAnimatedKeeper ? 0.72f : 0.56f;
+        float chance = DifficultySaveChance();
         if (aimRow == 0)
         {
             chance += 0.06f;
@@ -5200,6 +5478,36 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
         chance += Mathf.InverseLerp(0.35f, 1f, power) * (UseAaAnimatedKeeper ? 0.06f : 0.12f);
         return UnityEngine.Random.value < Mathf.Clamp01(chance);
+    }
+
+    private float DifficultyReadChance()
+    {
+        if (difficulty == GameDifficulty.Easy)
+        {
+            return UseAaAnimatedKeeper ? 0.42f : 0.34f;
+        }
+
+        if (difficulty == GameDifficulty.Hard)
+        {
+            return UseAaAnimatedKeeper ? 0.76f : 0.66f;
+        }
+
+        return UseAaAnimatedKeeper ? 0.62f : 0.5f;
+    }
+
+    private float DifficultySaveChance()
+    {
+        if (difficulty == GameDifficulty.Easy)
+        {
+            return UseAaAnimatedKeeper ? 0.56f : 0.42f;
+        }
+
+        if (difficulty == GameDifficulty.Hard)
+        {
+            return UseAaAnimatedKeeper ? 0.84f : 0.68f;
+        }
+
+        return UseAaAnimatedKeeper ? 0.72f : 0.56f;
     }
 
     private static float GridX(int col)
@@ -5359,6 +5667,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         Vector3 contact = AaShotSaveContactWorld(shotTarget);
         AaKeeperMotionProfile profile = CurrentAaKeeperMotionProfile();
+        if (MotionKeeperRow == 0 && MotionKeeperCol != 1)
+        {
+            // The top-corner imported clips tip the ball just inside the post rather
+            // than at the absolute shot target. Keep the shot aimed at the corner,
+            // but meet the glove at the clip's reachable contact lane.
+            contact.x = Mathf.Lerp(contact.x, AaKeeperContactWorld().x, 0.3f);
+        }
+
         return contact + new Vector3(0f, profile.ballContactYAdd, MotionKeeperRow == 0 ? -0.08f : 0f);
     }
 
