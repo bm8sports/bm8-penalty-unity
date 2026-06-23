@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.IO;
 using UnityEngine;
@@ -31,6 +32,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private const string Bm8KeeperBaseTexturePath = "Assets/Art/Characters/goalkeeper-stylized-rig-and-animation/source/ThuMon/textures/Goalkeeper_Base_color.png";
     private const string UploadedStylizedKeeperResource = "BM8Keeper/ThuMon/Goalkeeper_TPose";
     private const string Bm8KeeperBaseTextureResource = "BM8Keeper/ThuMon/textures/Goalkeeper_Base_color";
+    private const string StadiumBackdropResource = "Stadium/bm8-stadium-photo-balanced-1920";
     private const string AaGoalkeeperControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
     private const string RuntimeTestRequestKey = "BM8.KeeperRuntimeTest.Requested";
 
@@ -112,6 +114,10 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Material resultGoalFlashMaterial;
     private Transform goalNetImpact;
     private Material goalNetImpactMaterial;
+    private Material stadiumBackdropMaterial;
+    private Material stadiumCameraBackdropMaterial;
+    private Sprite stadiumBackdropSprite;
+    private Texture2D stadiumBackdropTexture;
     private float resultGoalFlashUntil;
     private Color resultGoalFlashColor = Color.white;
     private RectTransform goalGrid;
@@ -249,6 +255,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         HideKeeperMarkerGlovesWhenImportedKeeperIsActive();
         SetupBallTrail();
         EnsureBallShadow();
+        EnsureSoccerBall();
         EnsureSaveImpactFlash();
         EnsureSaveShockwave();
         EnsureSaveContactStreak();
@@ -267,6 +274,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private void Update()
     {
         DisableShotYellowEffectsIfNeeded();
+        EnsurePhotoStadiumRuntime();
 
         if (!arcadeSceneFixed)
         {
@@ -278,6 +286,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         UpdateGoalGridOverlay();
         UpdateResultGoalFlash();
         UpdateArcadeBackdropPulse();
+        KeepPhotoStadiumSceneClean();
         RunShotWatchdog();
 
         if ((!gameStarted || roundComplete) && !keeperTestMode)
@@ -607,8 +616,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         DrawArcadeHud();
-        DrawGoalFramePulse();
-        DrawIdleGoalGridGlow();
+        if (!IsPhotoStadiumActive())
+        {
+            DrawGoalFramePulse();
+            DrawIdleGoalGridGlow();
+        }
         DrawReadyBallAura();
         DrawShootingActionOverlay();
         DrawTargetLockOverlay();
@@ -651,44 +663,55 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         float width = Screen.width;
         float height = Screen.height;
-        float topPad = Mathf.Max(8f, height * 0.018f);
-        float topBarHeight = Mathf.Clamp(height * 0.16f, 74f, 108f);
+        float topPad = Mathf.Max(6f, height * 0.012f);
+        float topBarHeight = Mathf.Clamp(height * 0.115f, 54f, 78f);
         GUIStyle title = new GUIStyle(GUI.skin.label)
         {
             alignment = TextAnchor.MiddleCenter,
-            fontSize = Mathf.RoundToInt(Mathf.Clamp(height * 0.04f, 15f, 22f)),
+            fontSize = Mathf.RoundToInt(Mathf.Clamp(height * 0.034f, 14f, 19f)),
             fontStyle = FontStyle.Bold,
             normal = { textColor = Color.white }
         };
         GUIStyle small = new GUIStyle(GUI.skin.label)
         {
             alignment = TextAnchor.MiddleCenter,
-            fontSize = Mathf.RoundToInt(Mathf.Clamp(height * 0.032f, 11f, 15f)),
+            fontSize = Mathf.RoundToInt(Mathf.Clamp(height * 0.026f, 10f, 13f)),
             fontStyle = FontStyle.Bold,
             normal = { textColor = new Color(1f, 0.88f, 0.2f) }
         };
         GUIStyle panelText = new GUIStyle(GUI.skin.label)
         {
             alignment = TextAnchor.MiddleCenter,
-            fontSize = Mathf.RoundToInt(Mathf.Clamp(height * 0.034f, 12f, 16f)),
+            fontSize = Mathf.RoundToInt(Mathf.Clamp(height * 0.028f, 11f, 14f)),
             fontStyle = FontStyle.Bold,
             normal = { textColor = Color.white }
         };
+        GUIStyle chipText = new GUIStyle(GUI.skin.label)
+        {
+            alignment = TextAnchor.MiddleCenter,
+            fontSize = Mathf.RoundToInt(Mathf.Clamp(height * 0.018f, 8f, 10f)),
+            fontStyle = FontStyle.Bold,
+            normal = { textColor = new Color(0.78f, 0.72f, 0.34f, 0.82f) }
+        };
+        GUIStyle selectedChipText = new GUIStyle(chipText)
+        {
+            normal = { textColor = new Color(0.94f, 0.88f, 0.36f, 0.95f) }
+        };
 
-        FillGuiRect(new Rect(0f, 0f, width, topBarHeight), new Color(0.02f, 0.025f, 0.035f, 0.78f));
-        FillGuiRect(new Rect(width * 0.018f, topPad, width * 0.15f, Mathf.Max(28f, topBarHeight * 0.34f)), new Color(0.1f, 0.04f, 0.035f, 0.9f));
-        GUI.Label(new Rect(width * 0.018f, topPad, width * 0.15f, Mathf.Max(28f, topBarHeight * 0.34f)), "BM8 PENALTY", panelText);
+        FillGuiRect(new Rect(0f, 0f, width, topBarHeight), new Color(0.012f, 0.018f, 0.026f, 0.68f));
+        FillGuiRect(new Rect(width * 0.02f, topPad, width * 0.14f, Mathf.Max(22f, topBarHeight * 0.3f)), new Color(0.055f, 0.038f, 0.032f, 0.78f));
+        GUI.Label(new Rect(width * 0.02f, topPad, width * 0.14f, Mathf.Max(22f, topBarHeight * 0.3f)), "BM8 PENALTY", panelText);
         string status = statusText != null && !string.IsNullOrWhiteSpace(statusText.text) ? statusText.text : "Ready";
         status = status.Replace('\n', ' ').Replace('\r', ' ').Trim();
         if (status.Length > 24)
         {
             status = status.Substring(0, 24);
         }
-        GUI.Label(new Rect(width * 0.34f, topPad + 6f, width * 0.32f, topBarHeight * 0.26f), status.ToUpperInvariant(), title);
+        GUI.Label(new Rect(width * 0.34f, topPad + 3f, width * 0.32f, topBarHeight * 0.26f), status.ToUpperInvariant(), title);
         string scoreLine = keeperTestMode
             ? "TEST " + keeperTestShotIndex + " / " + keeperTestShotTotal
             : DifficultyLabel() + "   GOALS " + goals + "   SAVES " + saves + "   SHOTS " + shotCount + "/" + RoundShotLimit;
-        GUI.Label(new Rect(width * 0.34f, topPad + topBarHeight * 0.36f, width * 0.32f, topBarHeight * 0.22f), scoreLine, small);
+        GUI.Label(new Rect(width * 0.34f, topPad + topBarHeight * 0.32f, width * 0.32f, topBarHeight * 0.22f), scoreLine, small);
         DrawShotHistoryLights(width, topPad, topBarHeight);
 
         float chipStart = width * 0.27f;
@@ -699,15 +722,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float chipY = topPad + topBarHeight * 0.66f;
             bool selectedChip = i == TargetMultiplierIndex();
             float pulse = selectedChip ? Mathf.Sin((Time.time - targetPulseStartedAt) * 12f) * 0.5f + 0.5f : 0f;
-            float chipSize = selectedChip ? Mathf.Lerp(14f, 22f, pulse) : 11f;
-            Color chipColor = i % 2 == 0 ? new Color(1f, 0.2f, 0.18f, 0.95f) : new Color(1f, 0.86f, 0.18f, 0.95f);
+            float chipSize = selectedChip ? Mathf.Lerp(9f, 14f, pulse) : 8f;
+            Color chipColor = i % 2 == 0 ? new Color(0.86f, 0.18f, 0.14f, 0.82f) : new Color(0.86f, 0.78f, 0.2f, 0.82f);
             if (selectedChip)
             {
-                FillGuiRect(new Rect(x - chipSize * 0.85f, chipY - chipSize * 0.85f, chipSize * 2.7f, chipSize * 2.7f), new Color(1f, 0.92f, 0.16f, Mathf.Lerp(0.12f, 0.34f, pulse)));
-                chipColor = new Color(1f, 0.98f, 0.32f, 1f);
+                FillGuiRect(new Rect(x - chipSize * 0.75f, chipY - chipSize * 0.75f, chipSize * 2.4f, chipSize * 2.4f), new Color(0.86f, 0.78f, 0.2f, Mathf.Lerp(0.06f, 0.18f, pulse)));
+                chipColor = new Color(0.94f, 0.9f, 0.38f, 0.95f);
             }
-            FillGuiRect(new Rect(x - (chipSize - 11f) * 0.5f, chipY - (chipSize - 11f) * 0.5f, chipSize, chipSize), chipColor);
-            GUI.Label(new Rect(x - 15f, chipY + 12f, 44f, 18f), chips[i], selectedChip ? panelText : small);
+            FillGuiRect(new Rect(x - (chipSize - 8f) * 0.5f, chipY - (chipSize - 8f) * 0.5f, chipSize, chipSize), chipColor);
+            GUI.Label(new Rect(x - 14f, chipY + 7f, 40f, 14f), chips[i], selectedChip ? selectedChipText : chipText);
         }
 
         if (showDebugControls && !string.IsNullOrEmpty(activeKeeperControllerName))
@@ -2593,7 +2616,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         strikerRightArm = player.Find("BM8 Striker Right Arm");
         strikerTorso = player.Find("BM8 Striker Torso");
         strikerHead = player.Find("BM8 Striker Head");
-        strikerVisibleModel = player.Find("Visible FBX Character");
+        strikerVisibleModel = FindStrikerVisibleModel();
         keeperVisibleModel = FindKeeperVisibleModel();
         if (keeperAnimator == null && keeperVisibleModel != null)
         {
@@ -2611,6 +2634,17 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         RemoveArmNumberDecals(strikerLeftArm);
         RemoveArmNumberDecals(strikerRightArm);
+    }
+
+    private Transform FindStrikerVisibleModel()
+    {
+        Transform visible = player.Find("Visible FBX Character");
+        if (visible != null)
+        {
+            return visible;
+        }
+
+        return player.Find("Visible Photo Character");
     }
 
     private Transform FindKeeperVisibleModel()
@@ -3701,6 +3735,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         float bob = Mathf.Abs(stride) * 0.06f;
+        if (strikerVisibleModel.name == "Visible Photo Character")
+        {
+            strikerVisibleModel.localPosition = new Vector3(0.025f * stride, 1.08f + bob, -0.29f + 0.05f * kickFollow);
+            strikerVisibleModel.localRotation = Quaternion.Euler(pitch * 0.45f, 180f + 3.5f * stride, -2f * stride);
+            strikerVisibleModel.localScale = new Vector3(1.18f, 2.1f, 1f);
+            return;
+        }
+
         strikerVisibleModel.localPosition = new Vector3(0.035f * stride, bob, -0.02f + 0.06f * kickFollow);
         strikerVisibleModel.localRotation = Quaternion.Euler(pitch, 180f + 5f * stride, -3f * stride);
     }
@@ -3855,12 +3897,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             if (avatarSide < 0)
             {
-                return save ? "AA_Soccer_Goal_LHandHit_UL" : "AA_Soccer_Goal_HitBall_TL_Fail";
+                return save ? "AA_Soccer_Goal_HitBall_TL_Succ" : "AA_Soccer_Goal_HitBall_TL_Fail";
             }
 
             if (avatarSide > 0)
             {
-                return save ? "AA_Soccer_Goal_RHandHit_UR" : "AA_Soccer_Goal_HitBall_TR_Fail";
+                return save ? "AA_Soccer_Goal_HitBall_TR_Succ" : "AA_Soccer_Goal_HitBall_TR_Fail";
             }
 
             return save ? "AA_Soccer_Goal_CatchBall_UP_Succ" : "AA_Soccer_Goal_HitBall_UP_Fail";
@@ -4578,6 +4620,75 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         ballTrail.Clear();
     }
 
+    private void EnsureSoccerBall()
+    {
+        if (ball == null)
+        {
+            return;
+        }
+
+        Renderer ballRenderer = ball.GetComponent<Renderer>();
+        if (ballRenderer != null)
+        {
+            Material material = ballRenderer.sharedMaterial;
+            if (material == null || material.name.Contains("Default-Material"))
+            {
+                material = new Material(Shader.Find("Standard"));
+                ballRenderer.sharedMaterial = material;
+            }
+
+            material.color = new Color(0.96f, 0.96f, 0.91f);
+            if (material.HasProperty("_Glossiness"))
+            {
+                material.SetFloat("_Glossiness", 0.34f);
+            }
+        }
+
+        Transform existing = ball.Find("BM8 Soccer Ball Skin");
+        if (existing != null)
+        {
+            return;
+        }
+
+        Transform skin = new GameObject("BM8 Soccer Ball Skin").transform;
+        skin.SetParent(ball, false);
+
+        Material black = new Material(Shader.Find("Standard"));
+        black.color = new Color(0.015f, 0.016f, 0.018f);
+
+        AddBallPatch(skin, "Center Patch", Vector3.back, 0f, black, 0.23f);
+        AddBallPatch(skin, "Top Patch", new Vector3(0f, 0.78f, -0.62f), 18f, black, 0.17f);
+        AddBallPatch(skin, "Bottom Patch", new Vector3(0f, -0.78f, -0.62f), -18f, black, 0.17f);
+        AddBallPatch(skin, "Left Patch", new Vector3(-0.78f, 0f, -0.62f), -28f, black, 0.17f);
+        AddBallPatch(skin, "Right Patch", new Vector3(0.78f, 0f, -0.62f), 28f, black, 0.17f);
+        AddBallPatch(skin, "Far Top Patch", new Vector3(0.45f, 0.58f, 0.69f), 45f, black, 0.14f);
+        AddBallPatch(skin, "Far Bottom Patch", new Vector3(-0.45f, -0.58f, 0.69f), -45f, black, 0.14f);
+    }
+
+    private static void AddBallPatch(Transform parent, string name, Vector3 normal, float roll, Material material, float size)
+    {
+        GameObject patch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        patch.name = name;
+        patch.transform.SetParent(parent, false);
+        Vector3 direction = normal.normalized;
+        patch.transform.localPosition = direction * 0.515f;
+        patch.transform.localRotation = Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, roll);
+        patch.transform.localScale = new Vector3(size, 0.012f, size);
+
+        Collider collider = patch.GetComponent<Collider>();
+        if (collider != null)
+        {
+            Destroy(collider);
+        }
+
+        Renderer renderer = patch.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.sharedMaterial = material;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+    }
+
     private void DisableShotYellowEffectsIfNeeded()
     {
         if (ShowShotYellowEffects)
@@ -5147,18 +5258,85 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             backdrop.SetParent(transform, false);
         }
 
-        EnsureWorldBox(backdrop, "Back Wall", new Vector3(0f, 1.92f, 5.32f), new Vector3(8.7f, 3.35f, 0.08f), new Color(0.035f, 0.055f, 0.085f));
-        EnsureWorldBox(backdrop, "Red Left Panel", new Vector3(-3.25f, 1.72f, 5.26f), new Vector3(1.65f, 2.75f, 0.1f), new Color(0.52f, 0.055f, 0.045f));
-        EnsureWorldBox(backdrop, "Blue Center Panel", new Vector3(0f, 1.72f, 5.25f), new Vector3(2.25f, 2.75f, 0.1f), new Color(0.035f, 0.24f, 0.42f));
-        EnsureWorldBox(backdrop, "Red Right Panel", new Vector3(3.25f, 1.72f, 5.26f), new Vector3(1.65f, 2.75f, 0.1f), new Color(0.52f, 0.055f, 0.045f));
-        EnsureWorldBox(backdrop, "Top Light Band", new Vector3(0f, 3.55f, 5.22f), new Vector3(8.8f, 0.18f, 0.12f), new Color(0.62f, 0.52f, 0.12f));
-        EnsureWorldBox(backdrop, "Left Ad Board", new Vector3(-4.35f, 0.55f, 3.8f), new Vector3(0.12f, 0.72f, 2.2f), new Color(0.03f, 0.03f, 0.035f));
-        EnsureWorldBox(backdrop, "Right Ad Board", new Vector3(4.35f, 0.55f, 3.8f), new Vector3(0.12f, 0.72f, 2.2f), new Color(0.03f, 0.03f, 0.035f));
+        Texture2D stadiumTexture = LoadStadiumBackdropTexture();
+        if (stadiumTexture != null)
+        {
+            HideSolidGoalNetBackdrop();
+            ClearLegacyBackdropChildren(backdrop);
+            EnsurePhotoStadiumFullWall(backdrop, stadiumTexture);
+            EnsureCameraStadiumBackdrop(stadiumTexture);
+            StyleSceneForPhotoStadium();
+            return;
+        }
+
+        EnsureWorldBox(backdrop, "Back Wall", new Vector3(0f, 2.0f, 5.42f), new Vector3(10.8f, 3.55f, 0.08f), new Color(0.012f, 0.026f, 0.045f));
+        EnsureWorldBox(backdrop, "Red Left Panel", new Vector3(-3.72f, 1.52f, 5.3f), new Vector3(1.08f, 2.1f, 0.09f), new Color(0.13f, 0.18f, 0.22f));
+        EnsureWorldBox(backdrop, "Blue Center Panel", new Vector3(0f, 1.64f, 5.28f), new Vector3(2.15f, 2.28f, 0.09f), new Color(0.035f, 0.16f, 0.24f));
+        EnsureWorldBox(backdrop, "Red Right Panel", new Vector3(3.72f, 1.52f, 5.3f), new Vector3(1.08f, 2.1f, 0.09f), new Color(0.13f, 0.18f, 0.22f));
+        EnsureWorldBox(backdrop, "Top Light Band", new Vector3(0f, 3.52f, 5.18f), new Vector3(8.65f, 0.1f, 0.1f), new Color(0.34f, 0.31f, 0.19f));
+        EnsureWorldBox(backdrop, "Left Ad Board", new Vector3(-4.35f, 0.56f, 3.55f), new Vector3(0.12f, 0.42f, 2.34f), new Color(0.012f, 0.065f, 0.06f));
+        EnsureWorldBox(backdrop, "Right Ad Board", new Vector3(4.35f, 0.56f, 3.55f), new Vector3(0.12f, 0.42f, 2.34f), new Color(0.012f, 0.065f, 0.06f));
+        EnsureWorldBox(backdrop, "Stadium Upper Stand", new Vector3(0f, 3.13f, 5.08f), new Vector3(10.25f, 0.28f, 0.1f), new Color(0.035f, 0.055f, 0.08f));
+        EnsureWorldBox(backdrop, "Stadium Lower Stand", new Vector3(0f, 2.68f, 5.07f), new Vector3(9.95f, 0.32f, 0.09f), new Color(0.026f, 0.045f, 0.068f));
+        EnsureWorldBox(backdrop, "Stadium Roof", new Vector3(0f, 3.84f, 5.0f), new Vector3(10.55f, 0.18f, 0.3f), new Color(0.018f, 0.022f, 0.026f));
+        EnsureWorldBox(backdrop, "Roof Under Shadow", new Vector3(0f, 3.61f, 5.04f), new Vector3(10.25f, 0.22f, 0.12f), new Color(0.006f, 0.01f, 0.018f));
+        EnsureWorldBox(backdrop, "Left Floodlight Glow", new Vector3(-4.55f, 3.66f, 5.02f), new Vector3(0.52f, 0.24f, 0.08f), new Color(0.86f, 0.9f, 0.68f));
+        EnsureWorldBox(backdrop, "Right Floodlight Glow", new Vector3(4.55f, 3.66f, 5.02f), new Vector3(0.52f, 0.24f, 0.08f), new Color(0.86f, 0.9f, 0.68f));
+        EnsureWorldBox(backdrop, "Left Floodlight Mast", new Vector3(-4.55f, 2.65f, 5.04f), new Vector3(0.04f, 1.7f, 0.06f), new Color(0.5f, 0.56f, 0.62f));
+        EnsureWorldBox(backdrop, "Right Floodlight Mast", new Vector3(4.55f, 2.65f, 5.04f), new Vector3(0.04f, 1.7f, 0.06f), new Color(0.5f, 0.56f, 0.62f));
+        EnsureWorldBox(backdrop, "Goal Mouth Shadow", new Vector3(0f, 0.012f, 4.4f), new Vector3(6.6f, 0.018f, 1.0f), new Color(0.03f, 0.16f, 0.075f));
+        EnsureWorldBox(backdrop, "Penalty Area Highlight", new Vector3(0f, 0.014f, 1.15f), new Vector3(7.65f, 0.018f, 3.95f), new Color(0.08f, 0.48f, 0.22f));
+        EnsureWorldBox(backdrop, "Left Touchline Wash", new Vector3(-4.9f, 0.013f, 0.15f), new Vector3(0.56f, 0.018f, 8.2f), new Color(0.055f, 0.31f, 0.14f));
+        EnsureWorldBox(backdrop, "Right Touchline Wash", new Vector3(4.9f, 0.013f, 0.15f), new Vector3(0.56f, 0.018f, 8.2f), new Color(0.055f, 0.31f, 0.14f));
+        EnsureWorldBoxRotated(backdrop, "Left Stand Wing", new Vector3(-5.08f, 1.96f, 4.75f), new Vector3(1.75f, 2.55f, 0.09f), new Vector3(0f, -15f, 0f), new Color(0.018f, 0.04f, 0.06f));
+        EnsureWorldBoxRotated(backdrop, "Right Stand Wing", new Vector3(5.08f, 1.96f, 4.75f), new Vector3(1.75f, 2.55f, 0.09f), new Vector3(0f, 15f, 0f), new Color(0.018f, 0.04f, 0.06f));
+        EnsureWorldBoxRotated(backdrop, "Left Pitch Board Front", new Vector3(-4.65f, 0.39f, 1.55f), new Vector3(0.12f, 0.38f, 3.9f), new Vector3(0f, -9f, 0f), new Color(0.015f, 0.058f, 0.052f));
+        EnsureWorldBoxRotated(backdrop, "Right Pitch Board Front", new Vector3(4.65f, 0.39f, 1.55f), new Vector3(0.12f, 0.38f, 3.9f), new Vector3(0f, 9f, 0f), new Color(0.015f, 0.058f, 0.052f));
+        EnsureWorldBox(backdrop, "Stadium Tunnel", new Vector3(0f, 0.82f, 5.18f), new Vector3(1.25f, 0.82f, 0.08f), new Color(0.006f, 0.012f, 0.018f));
+        EnsureWorldBox(backdrop, "Tunnel Light Spill", new Vector3(0f, 0.46f, 5.13f), new Vector3(1.05f, 0.12f, 0.06f), new Color(0.22f, 0.3f, 0.28f));
+
+        for (int i = 0; i < 7; i++)
+        {
+            float y = 2.26f + i * 0.18f;
+            float width = 8.6f + i * 0.22f;
+            Color seatColor = i % 2 == 0 ? new Color(0.055f, 0.14f, 0.22f) : new Color(0.075f, 0.2f, 0.16f);
+            EnsureWorldBox(backdrop, "Seat Row " + i, new Vector3(0f, y, 5.01f), new Vector3(width, 0.07f, 0.06f), seatColor);
+        }
+
+        for (int i = 0; i < 6; i++)
+        {
+            float y = 1.25f + i * 0.31f;
+            Color sideSeatColor = i % 2 == 0 ? new Color(0.035f, 0.09f, 0.14f) : new Color(0.046f, 0.12f, 0.1f);
+            EnsureWorldBoxRotated(backdrop, "Left Stand Wing Row " + i, new Vector3(-5.1f, y, 4.64f), new Vector3(1.45f, 0.055f, 0.055f), new Vector3(0f, -15f, 0f), sideSeatColor);
+            EnsureWorldBoxRotated(backdrop, "Right Stand Wing Row " + i, new Vector3(5.1f, y, 4.64f), new Vector3(1.45f, 0.055f, 0.055f), new Vector3(0f, 15f, 0f), sideSeatColor);
+        }
+
+        for (int i = 0; i < 13; i++)
+        {
+            float z = Mathf.Lerp(-4.7f, 4.45f, i / 12f);
+            Color stripeColor = i % 2 == 0 ? new Color(0.1f, 0.56f, 0.25f) : new Color(0.065f, 0.43f, 0.19f);
+            EnsureWorldBox(backdrop, "Grass Mow Stripe " + i, new Vector3(0f, 0.006f, z), new Vector3(10.9f, 0.016f, 0.56f), stripeColor);
+        }
+
+        for (int i = 0; i < 44; i++)
+        {
+            float x = Mathf.Lerp(-4.75f, 4.75f, i / 43f);
+            float y = 2.28f + (i % 7) * 0.18f;
+            Color crowdColor = i % 5 == 0 ? new Color(0.42f, 0.08f, 0.07f) : i % 5 == 1 ? new Color(0.46f, 0.38f, 0.12f) : i % 5 == 2 ? new Color(0.09f, 0.22f, 0.38f) : i % 5 == 3 ? new Color(0.42f, 0.46f, 0.48f) : new Color(0.045f, 0.1f, 0.14f);
+            EnsureWorldBox(backdrop, "Crowd Pixel " + i, new Vector3(x, y, 4.96f), new Vector3(0.055f, 0.045f, 0.04f), crowdColor);
+        }
 
         for (int i = 0; i < 9; i++)
         {
             float x = Mathf.Lerp(-3.55f, 3.55f, i / 8f);
-            EnsureWorldBox(backdrop, "Chase Light " + i, new Vector3(x, 3.42f, 5.08f), new Vector3(0.32f, 0.09f, 0.08f), i % 2 == 0 ? new Color(1f, 0.18f, 0.12f) : new Color(1f, 0.84f, 0.14f));
+            EnsureWorldBox(backdrop, "Chase Light " + i, new Vector3(x, 3.38f, 5.08f), new Vector3(0.16f, 0.04f, 0.06f), i % 2 == 0 ? new Color(0.52f, 0.09f, 0.08f) : new Color(0.58f, 0.48f, 0.12f));
+        }
+
+        for (int i = 0; i < 6; i++)
+        {
+            float x = Mathf.Lerp(-4.55f, 4.55f, i / 5f);
+            Color bannerColor = i % 3 == 0 ? new Color(0.36f, 0.05f, 0.045f) : i % 3 == 1 ? new Color(0.36f, 0.28f, 0.08f) : new Color(0.04f, 0.16f, 0.22f);
+            EnsureWorldBox(backdrop, "Back Advertising Panel " + i, new Vector3(x, 0.56f, 5.12f), new Vector3(1.15f, 0.28f, 0.06f), bannerColor);
         }
 
         for (int i = 0; i <= 6; i++)
@@ -5171,6 +5349,335 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             float y = Mathf.Lerp(0.38f, 2.48f, i / 5f);
             EnsureWorldBox(backdrop, "Net Horizontal " + i, new Vector3(0f, y, 5.17f), new Vector3(6.12f, 0.01f, 0.01f), new Color(0.34f, 0.44f, 0.54f));
+        }
+    }
+
+    private void EnsurePhotoStadiumRuntime()
+    {
+        Texture2D stadiumTexture = LoadStadiumBackdropTexture();
+        if (stadiumTexture == null)
+        {
+            return;
+        }
+
+        Transform backdrop = transform.Find("BM8 Arcade Backdrop");
+        if (backdrop == null)
+        {
+            backdrop = new GameObject("BM8 Arcade Backdrop").transform;
+            backdrop.SetParent(transform, false);
+        }
+
+        HideSolidGoalNetBackdrop();
+        ClearLegacyBackdropChildren(backdrop);
+        EnsurePhotoStadiumFullWall(backdrop, stadiumTexture);
+        EnsureCameraStadiumBackdrop(stadiumTexture);
+        StyleSceneForPhotoStadium();
+    }
+
+    private Texture2D LoadStadiumBackdropTexture()
+    {
+        if (stadiumBackdropTexture != null)
+        {
+            return stadiumBackdropTexture;
+        }
+
+        stadiumBackdropTexture = Resources.Load<Texture2D>(StadiumBackdropResource);
+        if (stadiumBackdropTexture != null)
+        {
+            return stadiumBackdropTexture;
+        }
+
+        string filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-balanced-1920.png");
+        if (!File.Exists(filePath))
+        {
+            filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-1920.png");
+            if (!File.Exists(filePath))
+            {
+                filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-designed-1920.png");
+                if (!File.Exists(filePath))
+                {
+                    filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-red-stadium-wide-runtime.png");
+                    if (!File.Exists(filePath))
+                    {
+                        filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-red-stadium-wide.jpg");
+                        if (!File.Exists(filePath))
+                        {
+                            return null;
+                        }
+                    }
+                }
+            }
+        }
+
+        byte[] bytes = File.ReadAllBytes(filePath);
+        Texture2D texture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+        if (!texture.LoadImage(bytes))
+        {
+            return null;
+        }
+
+        texture.name = "BM8 Red Stadium Backdrop";
+        texture.wrapMode = TextureWrapMode.Clamp;
+        texture.filterMode = FilterMode.Bilinear;
+        stadiumBackdropTexture = texture;
+        return stadiumBackdropTexture;
+    }
+
+    private bool IsPhotoStadiumActive()
+    {
+        return stadiumBackdropTexture != null
+            || File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-balanced-1920.png"))
+            || File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-1920.png"))
+            || File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-designed-1920.png"))
+            || File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-red-stadium-wide-runtime.png"))
+            || File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-red-stadium-wide.jpg"));
+    }
+
+    private void ClearLegacyBackdropChildren(Transform backdrop)
+    {
+        for (int i = backdrop.childCount - 1; i >= 0; i--)
+        {
+            Transform child = backdrop.GetChild(i);
+            if (ShouldKeepPhotoStadiumChild(child.name))
+            {
+                continue;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(child.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(child.gameObject);
+            }
+        }
+    }
+
+    private static bool ShouldKeepPhotoStadiumChild(string name)
+    {
+        return name == "Photo Stadium Full Wall";
+    }
+
+    private void EnsurePhotoStadiumFullWall(Transform parent, Texture2D texture)
+    {
+        Transform existing = parent.Find("Photo Stadium Full Wall");
+        GameObject backdrop = existing != null ? existing.gameObject : null;
+        if (backdrop != null && backdrop.GetComponent<SpriteRenderer>() == null)
+        {
+            if (Application.isPlaying)
+            {
+                Destroy(backdrop);
+            }
+            else
+            {
+                DestroyImmediate(backdrop);
+            }
+
+            backdrop = null;
+        }
+
+        if (backdrop == null)
+        {
+            backdrop = new GameObject("Photo Stadium Full Wall");
+        }
+
+        backdrop.name = "Photo Stadium Full Wall";
+        backdrop.transform.SetParent(parent, false);
+        backdrop.transform.position = new Vector3(0f, 1.58f, 5.2f);
+        backdrop.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+        backdrop.transform.localScale = new Vector3(1f, 1f, 1f);
+
+        Collider collider = backdrop.GetComponent<Collider>();
+        if (collider != null)
+        {
+            collider.enabled = false;
+        }
+
+        if (stadiumBackdropSprite == null || stadiumBackdropSprite.texture != texture)
+        {
+            stadiumBackdropSprite = Sprite.Create(texture, new Rect(0f, 0f, texture.width, texture.height), new Vector2(0.5f, 0.5f), 100f);
+            stadiumBackdropSprite.name = "BM8 Red Stadium Backdrop Sprite";
+        }
+
+        if (stadiumBackdropMaterial == null)
+        {
+            Shader shader = Shader.Find("Sprites/Default");
+            if (shader != null)
+            {
+                stadiumBackdropMaterial = new Material(shader);
+            }
+        }
+
+        SpriteRenderer renderer = backdrop.GetComponent<SpriteRenderer>();
+        if (renderer == null)
+        {
+            renderer = backdrop.AddComponent<SpriteRenderer>();
+        }
+
+        renderer.sprite = stadiumBackdropSprite;
+        renderer.enabled = true;
+        renderer.flipX = true;
+        renderer.color = new Color(1.18f, 1.03f, 1.03f, 1f);
+        if (stadiumBackdropMaterial != null)
+        {
+            renderer.sharedMaterial = stadiumBackdropMaterial;
+        }
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
+        renderer.sortingOrder = -50;
+
+        MeshRenderer meshRenderer = backdrop.GetComponent<MeshRenderer>();
+        if (meshRenderer != null)
+        {
+            meshRenderer.enabled = false;
+        }
+
+        MeshFilter meshFilter = backdrop.GetComponent<MeshFilter>();
+        if (meshFilter != null)
+        {
+            if (Application.isPlaying)
+            {
+                Destroy(meshFilter);
+            }
+            else
+            {
+                DestroyImmediate(meshFilter);
+            }
+        }
+    }
+
+    private void EnsureCameraStadiumBackdrop(Texture2D texture)
+    {
+        Camera camera = Camera.main != null ? Camera.main : FindAnyObjectByType<Camera>();
+        if (camera == null)
+        {
+            return;
+        }
+
+        Transform existing = camera.transform.Find("Photo Stadium Camera Backdrop");
+        GameObject backdrop = existing != null ? existing.gameObject : GameObject.CreatePrimitive(PrimitiveType.Quad);
+        backdrop.name = "Photo Stadium Camera Backdrop";
+        backdrop.transform.SetParent(camera.transform, false);
+
+        float distance = Mathf.Clamp(camera.farClipPlane * 0.42f, 24f, 55f);
+        float height = 2f * Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad) * distance;
+        float width = height * camera.aspect;
+        backdrop.transform.localPosition = new Vector3(0f, -0.08f, distance);
+        backdrop.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+        backdrop.transform.localScale = new Vector3(width, height, 1f);
+
+        Collider collider = backdrop.GetComponent<Collider>();
+        if (collider != null)
+        {
+            collider.enabled = false;
+        }
+
+        if (stadiumCameraBackdropMaterial == null || stadiumCameraBackdropMaterial.mainTexture != texture)
+        {
+            Shader shader = Shader.Find("Unlit/Texture");
+            if (shader == null)
+            {
+                shader = Shader.Find("Standard");
+            }
+
+            stadiumCameraBackdropMaterial = new Material(shader);
+            stadiumCameraBackdropMaterial.mainTexture = texture;
+            stadiumCameraBackdropMaterial.mainTextureScale = new Vector2(-1f, 1f);
+            stadiumCameraBackdropMaterial.mainTextureOffset = new Vector2(1f, 0f);
+            if (stadiumCameraBackdropMaterial.HasProperty("_MainTex"))
+            {
+                stadiumCameraBackdropMaterial.SetTexture("_MainTex", texture);
+                stadiumCameraBackdropMaterial.SetTextureScale("_MainTex", new Vector2(-1f, 1f));
+                stadiumCameraBackdropMaterial.SetTextureOffset("_MainTex", new Vector2(1f, 0f));
+            }
+            if (stadiumCameraBackdropMaterial.HasProperty("_BaseMap"))
+            {
+                stadiumCameraBackdropMaterial.SetTexture("_BaseMap", texture);
+                stadiumCameraBackdropMaterial.SetTextureScale("_BaseMap", new Vector2(-1f, 1f));
+                stadiumCameraBackdropMaterial.SetTextureOffset("_BaseMap", new Vector2(1f, 0f));
+            }
+            if (stadiumCameraBackdropMaterial.HasProperty("_Color"))
+            {
+                stadiumCameraBackdropMaterial.color = new Color(1.28f, 1.08f, 1.08f, 1f);
+            }
+            if (stadiumCameraBackdropMaterial.HasProperty("_BaseColor"))
+            {
+                stadiumCameraBackdropMaterial.SetColor("_BaseColor", new Color(1.28f, 1.08f, 1.08f, 1f));
+            }
+        }
+
+        Renderer renderer = backdrop.GetComponent<Renderer>();
+        if (renderer != null)
+        {
+            renderer.enabled = true;
+            renderer.sharedMaterial = stadiumCameraBackdropMaterial;
+            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+        }
+    }
+
+    private void StyleSceneForPhotoStadium()
+    {
+        Transform[] transforms = FindObjectsByType<Transform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        foreach (Transform item in transforms)
+        {
+            if (item == null)
+            {
+                continue;
+            }
+
+            string objectName = item.name;
+            if (objectName == "Goal Frame"
+                || objectName == "Left Post"
+                || objectName == "Right Post"
+                || objectName == "Crossbar"
+                || objectName == "Pitch"
+                || objectName == "Goal Line"
+                || objectName == "Penalty Spot"
+                || objectName == "Penalty Box Back"
+                || objectName == "Penalty Box Left"
+                || objectName == "Penalty Box Right"
+                || objectName == "Net Back"
+                || objectName == "Goal Mouth Shadow"
+                || objectName == "Penalty Area Highlight"
+                || objectName == "Left Touchline Wash"
+                || objectName == "Right Touchline Wash"
+                || objectName == "Left Pitch Board Front"
+                || objectName == "Right Pitch Board Front"
+                || objectName.StartsWith("Grass Mow Stripe", StringComparison.Ordinal))
+            {
+                SetRenderersEnabled(item, false);
+                continue;
+            }
+
+        }
+    }
+
+    private void KeepPhotoStadiumSceneClean()
+    {
+        if (stadiumBackdropTexture == null
+            && !File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-balanced-1920.png"))
+            && !File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-1920.png"))
+            && !File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-red-stadium-wide-runtime.png")))
+        {
+            return;
+        }
+
+        StyleSceneForPhotoStadium();
+        Texture2D stadiumTexture = LoadStadiumBackdropTexture();
+        if (stadiumTexture != null)
+        {
+            EnsureCameraStadiumBackdrop(stadiumTexture);
+        }
+    }
+
+    private static void SetRenderersEnabled(Transform root, bool enabled)
+    {
+        Renderer[] renderers = root.GetComponentsInChildren<Renderer>(true);
+        foreach (Renderer renderer in renderers)
+        {
+            renderer.enabled = enabled;
         }
     }
 
@@ -5194,26 +5701,27 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             float x = Mathf.Lerp(-3.55f, 3.55f, i / 8f);
             float pulse = Mathf.Sin(time * 6.4f - i * 0.78f) * 0.5f + 0.5f;
             float hot = Mathf.SmoothStep(0.18f, 1f, pulse);
-            light.position = new Vector3(x, 3.42f + hot * 0.035f, 5.08f);
-            light.localScale = new Vector3(Mathf.Lerp(0.24f, 0.42f, hot), Mathf.Lerp(0.06f, 0.14f, hot), 0.08f);
-            SetExistingMaterialColor(light, Color.Lerp(new Color(0.28f, 0.03f, 0.025f), i % 2 == 0 ? new Color(1f, 0.16f, 0.1f) : new Color(1f, 0.9f, 0.18f), hot));
+            light.position = new Vector3(x, 3.38f + hot * 0.025f, 5.08f);
+            light.localScale = new Vector3(Mathf.Lerp(0.16f, 0.28f, hot), Mathf.Lerp(0.045f, 0.085f, hot), 0.07f);
+            SetExistingMaterialColor(light, Color.Lerp(new Color(0.12f, 0.02f, 0.018f), i % 2 == 0 ? new Color(0.86f, 0.16f, 0.1f) : new Color(0.9f, 0.78f, 0.18f), hot));
         }
 
         Transform band = backdrop.Find("Top Light Band");
         if (band != null)
         {
             float bandPulse = Mathf.Sin(time * 3.2f) * 0.5f + 0.5f;
-            SetExistingMaterialColor(band, Color.Lerp(new Color(0.26f, 0.19f, 0.055f), new Color(0.86f, 0.72f, 0.18f), bandPulse));
+            SetExistingMaterialColor(band, Color.Lerp(new Color(0.16f, 0.13f, 0.055f), new Color(0.48f, 0.42f, 0.16f), bandPulse));
         }
 
         float resultLife = Mathf.Clamp01((resultBannerUntil - Time.time) / 1.7f);
         float resultPulse = Mathf.Sin(Time.time * 18f) * 0.5f + 0.5f;
-        Color panelColor = Color.Lerp(new Color(0.52f, 0.055f, 0.045f), resultBannerColor, resultLife * Mathf.Lerp(0.25f, 0.7f, resultPulse));
-        Color adColor = Color.Lerp(new Color(0.03f, 0.03f, 0.035f), resultBannerColor, resultLife * Mathf.Lerp(0.12f, 0.42f, resultPulse));
+        Color panelColor = Color.Lerp(new Color(0.13f, 0.18f, 0.22f), resultBannerColor, resultLife * Mathf.Lerp(0.08f, 0.22f, resultPulse));
+        Color adColor = Color.Lerp(new Color(0.012f, 0.065f, 0.06f), resultBannerColor, resultLife * Mathf.Lerp(0.08f, 0.24f, resultPulse));
         SetExistingMaterialColor(backdrop.Find("Red Left Panel"), panelColor);
         SetExistingMaterialColor(backdrop.Find("Red Right Panel"), panelColor);
         SetExistingMaterialColor(backdrop.Find("Left Ad Board"), adColor);
         SetExistingMaterialColor(backdrop.Find("Right Ad Board"), adColor);
+
     }
 
     private static void SetExistingMaterialColor(Transform part, Color color)
@@ -5239,6 +5747,11 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
             string objectName = renderer.gameObject.name;
             string parentName = renderer.transform.parent != null ? renderer.transform.parent.name : "";
+            if (objectName.Contains("Photo Stadium") || parentName.Contains("Photo Stadium"))
+            {
+                continue;
+            }
+
             Bounds bounds = renderer.bounds;
             bool largeGoalBackPlate = renderer.transform.position.z > 4.9f && bounds.size.x > 4.8f && bounds.size.y > 1.2f;
             if (objectName.Contains("Net Back") || objectName.Contains("Goal Net") || parentName.Contains("Net Back") || largeGoalBackPlate)
@@ -5246,16 +5759,39 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
                 renderer.enabled = false;
             }
         }
+
+        Transform[] transforms = FindObjectsByType<Transform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+        foreach (Transform item in transforms)
+        {
+            if (item == null)
+            {
+                continue;
+            }
+
+            if (item.name.Contains("Net Back") || item.name.Contains("Goal Net"))
+            {
+                Renderer[] childRenderers = item.GetComponentsInChildren<Renderer>(true);
+                foreach (Renderer childRenderer in childRenderers)
+                {
+                    childRenderer.enabled = false;
+                }
+            }
+        }
     }
 
     private static void EnsureWorldBox(Transform parent, string name, Vector3 position, Vector3 scale, Color color)
+    {
+        EnsureWorldBoxRotated(parent, name, position, scale, Vector3.zero, color);
+    }
+
+    private static void EnsureWorldBoxRotated(Transform parent, string name, Vector3 position, Vector3 scale, Vector3 eulerAngles, Color color)
     {
         Transform existing = parent.Find(name);
         GameObject box = existing != null ? existing.gameObject : GameObject.CreatePrimitive(PrimitiveType.Cube);
         box.name = name;
         box.transform.SetParent(parent, false);
         box.transform.position = position;
-        box.transform.rotation = Quaternion.identity;
+        box.transform.rotation = Quaternion.Euler(eulerAngles);
         box.transform.localScale = scale;
         Collider collider = box.GetComponent<Collider>();
         if (collider != null)

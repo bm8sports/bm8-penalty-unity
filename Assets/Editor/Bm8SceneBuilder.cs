@@ -770,7 +770,21 @@ public static class Bm8SceneBuilder
         field.name = "Pitch";
         field.transform.localScale = new Vector3(11f, 0.12f, 17f);
         field.transform.position = new Vector3(0f, -0.08f, 0.9f);
-        SetMaterial(field, new Color(0.08f, 0.42f, 0.18f));
+        SetMaterial(field, new Color(0.065f, 0.38f, 0.17f));
+
+        for (int i = 0; i < 13; i++)
+        {
+            float z = Mathf.Lerp(-4.7f, 4.45f, i / 12f);
+            Color stripeColor = i % 2 == 0 ? new Color(0.1f, 0.56f, 0.25f) : new Color(0.065f, 0.43f, 0.19f);
+            CreateColoredLine("Grass Mow Stripe " + i, new Vector3(0f, 0.006f, z), new Vector3(10.9f, 0.016f, 0.56f), stripeColor);
+        }
+
+        CreateColoredLine("Goal Mouth Shadow", new Vector3(0f, 0.012f, 4.4f), new Vector3(6.6f, 0.018f, 1.0f), new Color(0.03f, 0.16f, 0.075f));
+        CreateColoredLine("Penalty Area Highlight", new Vector3(0f, 0.014f, 1.15f), new Vector3(7.65f, 0.018f, 3.95f), new Color(0.08f, 0.48f, 0.22f));
+        CreateColoredLine("Left Touchline Wash", new Vector3(-4.9f, 0.013f, 0.15f), new Vector3(0.56f, 0.018f, 8.2f), new Color(0.055f, 0.31f, 0.14f));
+        CreateColoredLine("Right Touchline Wash", new Vector3(4.9f, 0.013f, 0.15f), new Vector3(0.56f, 0.018f, 8.2f), new Color(0.055f, 0.31f, 0.14f));
+        CreateColoredLine("Left Pitch Board Front", new Vector3(-4.65f, 0.39f, 1.55f), new Vector3(0.12f, 0.38f, 3.9f), new Color(0.015f, 0.058f, 0.052f), new Vector3(0f, -9f, 0f));
+        CreateColoredLine("Right Pitch Board Front", new Vector3(4.65f, 0.39f, 1.55f), new Vector3(0.12f, 0.38f, 3.9f), new Color(0.015f, 0.058f, 0.052f), new Vector3(0f, 9f, 0f));
 
         CreateLine("Penalty Spot", new Vector3(0f, 0.02f, -2.9f), new Vector3(0.28f, 0.03f, 0.28f));
         CreateLine("Goal Line", new Vector3(0f, 0.03f, 4.95f), new Vector3(7.6f, 0.03f, 0.08f));
@@ -795,7 +809,8 @@ public static class Bm8SceneBuilder
         ball.name = "Ball";
         ball.transform.position = new Vector3(0f, 0.22f, -2.9f);
         ball.transform.localScale = Vector3.one * 0.42f;
-        SetMaterial(ball, Color.white);
+        SetMaterial(ball, new Color(0.96f, 0.96f, 0.91f));
+        CreateSoccerBallPatches(ball.transform);
         return ball.transform;
     }
 
@@ -915,16 +930,6 @@ public static class Bm8SceneBuilder
 
     private static void CreateVisibleFbxStriker(Transform parent)
     {
-        if (CreatePhotoBillboard(
-            parent,
-            "Visible Photo Character",
-            "Assets/Art/Characters/striker-photo-cutout.png",
-            new Vector3(0f, 1.16f, -0.27f),
-            new Vector2(1.34f, 2.38f)))
-        {
-            return;
-        }
-
         const string modelPath = "Assets/ThirdParty/KenneyAnimatedCharacters/Model/characterMedium.fbx";
         AssetDatabase.Refresh();
 
@@ -932,6 +937,12 @@ public static class Bm8SceneBuilder
         if (source == null)
         {
             Debug.LogWarning("BM8 visible FBX striker model is missing: " + modelPath);
+            CreatePhotoBillboard(
+                parent,
+                "Visible Photo Character",
+                "Assets/Art/Characters/striker-photo-cutout.png",
+                new Vector3(0f, 1.08f, -0.29f),
+                new Vector2(1.18f, 2.1f));
             return;
         }
 
@@ -954,6 +965,10 @@ public static class Bm8SceneBuilder
 
         CreatePart("BM8 Visible Chest Panel", instance.transform, PrimitiveType.Cube, new Vector3(0f, 92f, -16f), new Vector3(24f, 42f, 2.2f), new Color(0.035f, 0.04f, 0.045f));
         CreatePart("BM8 Visible Collar", instance.transform, PrimitiveType.Cube, new Vector3(0f, 121f, -16.5f), new Vector3(15f, 3.5f, 2.4f), Color.white);
+        CreatePart("BM8 Visible Left Sock", instance.transform, PrimitiveType.Cube, new Vector3(-8f, 31f, -7.5f), new Vector3(6.5f, 18f, 2.1f), new Color(0.92f, 0.18f, 0.08f));
+        CreatePart("BM8 Visible Right Sock", instance.transform, PrimitiveType.Cube, new Vector3(8f, 31f, -7.5f), new Vector3(6.5f, 18f, 2.1f), new Color(0.92f, 0.18f, 0.08f));
+        CreatePart("BM8 Visible Left Sleeve", instance.transform, PrimitiveType.Cube, new Vector3(-21f, 105f, -15.5f), new Vector3(8f, 4f, 2.2f), Color.white);
+        CreatePart("BM8 Visible Right Sleeve", instance.transform, PrimitiveType.Cube, new Vector3(21f, 105f, -15.5f), new Vector3(8f, 4f, 2.2f), Color.white);
     }
 
     private static void AssignKeeperControllers(SerializedObject serialized)
@@ -1075,6 +1090,62 @@ public static class Bm8SceneBuilder
         line.transform.position = position;
         line.transform.localScale = scale;
         SetMaterial(line, Color.white);
+    }
+
+    private static void CreateColoredLine(string name, Vector3 position, Vector3 scale, Color color)
+    {
+        CreateColoredLine(name, position, scale, color, Vector3.zero);
+    }
+
+    private static void CreateColoredLine(string name, Vector3 position, Vector3 scale, Color color, Vector3 eulerAngles)
+    {
+        var line = GameObject.CreatePrimitive(PrimitiveType.Cube);
+        line.name = name;
+        line.transform.position = position;
+        line.transform.rotation = Quaternion.Euler(eulerAngles);
+        line.transform.localScale = scale;
+        SetMaterial(line, color);
+
+        Collider collider = line.GetComponent<Collider>();
+        if (collider != null)
+        {
+            collider.enabled = false;
+        }
+    }
+
+    private static void CreateSoccerBallPatches(Transform ball)
+    {
+        var skin = new GameObject("BM8 Soccer Ball Skin").transform;
+        skin.SetParent(ball, false);
+
+        var black = new Material(Shader.Find("Standard"));
+        black.color = new Color(0.015f, 0.016f, 0.018f);
+
+        CreateBallPatch(skin, "Center Patch", Vector3.back, 0f, black, 0.23f);
+        CreateBallPatch(skin, "Top Patch", new Vector3(0f, 0.78f, -0.62f), 18f, black, 0.17f);
+        CreateBallPatch(skin, "Bottom Patch", new Vector3(0f, -0.78f, -0.62f), -18f, black, 0.17f);
+        CreateBallPatch(skin, "Left Patch", new Vector3(-0.78f, 0f, -0.62f), -28f, black, 0.17f);
+        CreateBallPatch(skin, "Right Patch", new Vector3(0.78f, 0f, -0.62f), 28f, black, 0.17f);
+        CreateBallPatch(skin, "Far Top Patch", new Vector3(0.45f, 0.58f, 0.69f), 45f, black, 0.14f);
+        CreateBallPatch(skin, "Far Bottom Patch", new Vector3(-0.45f, -0.58f, 0.69f), -45f, black, 0.14f);
+    }
+
+    private static void CreateBallPatch(Transform parent, string name, Vector3 normal, float roll, Material material, float size)
+    {
+        var patch = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+        patch.name = name;
+        patch.transform.SetParent(parent, false);
+        Vector3 direction = normal.normalized;
+        patch.transform.localPosition = direction * 0.515f;
+        patch.transform.localRotation = Quaternion.LookRotation(direction, Vector3.up) * Quaternion.Euler(90f, 0f, roll);
+        patch.transform.localScale = new Vector3(size, 0.012f, size);
+        patch.GetComponent<Renderer>().sharedMaterial = material;
+
+        Collider collider = patch.GetComponent<Collider>();
+        if (collider != null)
+        {
+            collider.enabled = false;
+        }
     }
 
     private static void CreatePost(string name, Transform parent, Vector3 position, Vector3 scale)
