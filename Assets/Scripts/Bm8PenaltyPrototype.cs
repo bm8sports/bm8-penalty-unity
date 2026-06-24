@@ -33,6 +33,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private const string UploadedStylizedKeeperResource = "BM8Keeper/ThuMon/Goalkeeper_TPose";
     private const string Bm8KeeperBaseTextureResource = "BM8Keeper/ThuMon/textures/Goalkeeper_Base_color";
     private const string StadiumBackdropResource = "Stadium/bm8-stadium-photo-balanced-1920";
+    private const string BackgroundMusicResource = "Audio/dai-dai-world-cup-2026";
     private const string AaGoalkeeperControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
     private const string RuntimeTestRequestKey = "BM8.KeeperRuntimeTest.Requested";
 
@@ -118,6 +119,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private Material stadiumCameraBackdropMaterial;
     private Sprite stadiumBackdropSprite;
     private Texture2D stadiumBackdropTexture;
+    private AudioSource musicAudio;
+    private AudioClip backgroundMusicClip;
     private float resultGoalFlashUntil;
     private Color resultGoalFlashColor = Color.white;
     private RectTransform goalGrid;
@@ -1437,7 +1440,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private void EnsureProductAudio()
     {
         Transform audioHost = cameraRig != null ? cameraRig : transform;
-        productAudio = audioHost.GetComponent<AudioSource>();
+        AudioSource[] audioSources = audioHost.GetComponents<AudioSource>();
+        productAudio = audioSources.Length > 0 ? audioSources[0] : null;
         if (productAudio == null)
         {
             productAudio = audioHost.gameObject.AddComponent<AudioSource>();
@@ -1446,6 +1450,29 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         productAudio.playOnAwake = false;
         productAudio.spatialBlend = 0f;
         productAudio.volume = 0.78f;
+        productAudio.loop = false;
+
+        musicAudio = audioSources.Length > 1 ? audioSources[1] : null;
+        if (musicAudio == null)
+        {
+            musicAudio = audioHost.gameObject.AddComponent<AudioSource>();
+        }
+
+        musicAudio.playOnAwake = false;
+        musicAudio.spatialBlend = 0f;
+        musicAudio.loop = true;
+        musicAudio.volume = 0.26f;
+
+        backgroundMusicClip = Resources.Load<AudioClip>(BackgroundMusicResource);
+        if (backgroundMusicClip != null)
+        {
+            musicAudio.clip = backgroundMusicClip;
+            if (!musicAudio.isPlaying)
+            {
+                musicAudio.Play();
+            }
+        }
+
         clickClip = BuildToneClip("BM8 Click", 660f, 0.055f, 0.16f);
         kickClip = BuildToneClip("BM8 Kick", 118f, 0.14f, 0.34f);
         goalClip = BuildToneClip("BM8 Goal", 740f, 0.28f, 0.32f);
