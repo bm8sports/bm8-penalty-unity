@@ -5685,14 +5685,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static Vector2 GetStadiumBackdropTextureScale()
     {
         return ShouldUsePortraitStadiumBackdrop()
-            ? new Vector2(-1f, 0.68f)
+            ? new Vector2(-1f, 1f)
             : new Vector2(-1f, 1f);
     }
 
     private static Vector2 GetStadiumBackdropTextureOffset()
     {
         return ShouldUsePortraitStadiumBackdrop()
-            ? new Vector2(1f, 0.34f)
+            ? new Vector2(1f, 0f)
             : new Vector2(1f, 0f);
     }
 
