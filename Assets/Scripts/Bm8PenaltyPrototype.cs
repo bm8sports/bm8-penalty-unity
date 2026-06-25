@@ -5627,19 +5627,13 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
             stadiumCameraBackdropMaterial = new Material(shader);
             stadiumCameraBackdropMaterial.mainTexture = texture;
-            stadiumCameraBackdropMaterial.mainTextureScale = new Vector2(-1f, 1f);
-            stadiumCameraBackdropMaterial.mainTextureOffset = new Vector2(1f, 0f);
             if (stadiumCameraBackdropMaterial.HasProperty("_MainTex"))
             {
                 stadiumCameraBackdropMaterial.SetTexture("_MainTex", texture);
-                stadiumCameraBackdropMaterial.SetTextureScale("_MainTex", new Vector2(-1f, 1f));
-                stadiumCameraBackdropMaterial.SetTextureOffset("_MainTex", new Vector2(1f, 0f));
             }
             if (stadiumCameraBackdropMaterial.HasProperty("_BaseMap"))
             {
                 stadiumCameraBackdropMaterial.SetTexture("_BaseMap", texture);
-                stadiumCameraBackdropMaterial.SetTextureScale("_BaseMap", new Vector2(-1f, 1f));
-                stadiumCameraBackdropMaterial.SetTextureOffset("_BaseMap", new Vector2(1f, 0f));
             }
             if (stadiumCameraBackdropMaterial.HasProperty("_Color"))
             {
@@ -5651,6 +5645,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             }
         }
 
+        ApplyStadiumBackdropSampling(stadiumCameraBackdropMaterial);
+
         Renderer renderer = backdrop.GetComponent<Renderer>();
         if (renderer != null)
         {
@@ -5659,6 +5655,45 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
         }
+    }
+
+    private static void ApplyStadiumBackdropSampling(Material material)
+    {
+        if (material == null)
+        {
+            return;
+        }
+
+        Vector2 scale = GetStadiumBackdropTextureScale();
+        Vector2 offset = GetStadiumBackdropTextureOffset();
+        material.mainTextureScale = scale;
+        material.mainTextureOffset = offset;
+
+        if (material.HasProperty("_MainTex"))
+        {
+            material.SetTextureScale("_MainTex", scale);
+            material.SetTextureOffset("_MainTex", offset);
+        }
+
+        if (material.HasProperty("_BaseMap"))
+        {
+            material.SetTextureScale("_BaseMap", scale);
+            material.SetTextureOffset("_BaseMap", offset);
+        }
+    }
+
+    private static Vector2 GetStadiumBackdropTextureScale()
+    {
+        return ShouldUsePortraitStadiumBackdrop()
+            ? new Vector2(-1f, 0.68f)
+            : new Vector2(-1f, 1f);
+    }
+
+    private static Vector2 GetStadiumBackdropTextureOffset()
+    {
+        return ShouldUsePortraitStadiumBackdrop()
+            ? new Vector2(1f, 0.34f)
+            : new Vector2(1f, 0f);
     }
 
     private void StyleSceneForPhotoStadium()
