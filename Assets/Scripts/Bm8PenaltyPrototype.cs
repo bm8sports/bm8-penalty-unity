@@ -5557,11 +5557,12 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             backdrop = new GameObject("Photo Stadium Full Wall");
         }
 
+        bool portrait = ShouldUsePortraitStadiumBackdrop();
         backdrop.name = "Photo Stadium Full Wall";
         backdrop.transform.SetParent(parent, false);
-        backdrop.transform.position = new Vector3(0f, 1.58f, 5.2f);
+        backdrop.transform.position = portrait ? new Vector3(0f, 1.62f, 5.22f) : new Vector3(0f, 1.58f, 5.2f);
         backdrop.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
-        backdrop.transform.localScale = new Vector3(1f, 1f, 1f);
+        backdrop.transform.localScale = portrait ? new Vector3(1.36f, 1.36f, 1f) : new Vector3(1f, 1f, 1f);
 
         Collider collider = backdrop.GetComponent<Collider>();
         if (collider != null)
@@ -5591,7 +5592,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         renderer.sprite = stadiumBackdropSprite;
-        renderer.enabled = !ShouldUsePortraitStadiumBackdrop();
+        renderer.enabled = true;
         renderer.flipX = true;
         renderer.color = new Color(1.18f, 1.03f, 1.03f, 1f);
         if (stadiumBackdropMaterial != null)
@@ -5685,7 +5686,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         Renderer renderer = backdrop.GetComponent<Renderer>();
         if (renderer != null)
         {
-            renderer.enabled = true;
+            renderer.enabled = !ShouldUsePortraitStadiumBackdrop();
             renderer.sharedMaterial = stadiumCameraBackdropMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
