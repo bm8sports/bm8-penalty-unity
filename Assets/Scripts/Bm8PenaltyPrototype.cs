@@ -37,6 +37,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private const string BackgroundMusicResource = "Audio/dai-dai-world-cup-2026";
     private const string AaGoalkeeperControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
     private const string RuntimeTestRequestKey = "BM8.KeeperRuntimeTest.Requested";
+    private const float PortraitStadiumKeeperScale = 0.82f;
+    private static readonly Vector3 PortraitStadiumKeeperStart = new Vector3(0f, 0f, 4.84f);
 
     [Header("Scene Objects")]
     [SerializeField] private Transform ball;
@@ -255,6 +257,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             EnsureProceduralKeeperVisible();
         }
         HideKeeperControlRigWhenFbxExists();
+        ApplyPortraitStadiumLayout(forceReadyPose: true);
         EnsureKeeperGloves();
         HideKeeperMarkerGlovesWhenImportedKeeperIsActive();
         SetupBallTrail();
@@ -268,6 +271,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         EnsureProductAudio();
         HideSolidGoalNetBackdrop();
         EnsureArcadeBackdrop();
+        ApplyPortraitStadiumLayout(forceReadyPose: true);
         CreateNineTargetGrid();
         HideLegacyTextOverlay();
         UpdateScore();
@@ -5294,6 +5298,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             EnsurePhotoStadiumFullWall(backdrop, stadiumTexture);
             EnsureCameraStadiumBackdrop(stadiumTexture);
             StyleSceneForPhotoStadium();
+            ApplyPortraitStadiumLayout(forceReadyPose: false);
             return;
         }
 
@@ -5400,6 +5405,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         EnsurePhotoStadiumFullWall(backdrop, stadiumTexture);
         EnsureCameraStadiumBackdrop(stadiumTexture);
         StyleSceneForPhotoStadium();
+        ApplyPortraitStadiumLayout(forceReadyPose: false);
     }
 
     private Texture2D LoadStadiumBackdropTexture()
@@ -5464,6 +5470,31 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private static bool ShouldUsePortraitStadiumBackdrop()
     {
         return Screen.height > Screen.width;
+    }
+
+    private void ApplyPortraitStadiumLayout(bool forceReadyPose)
+    {
+        if (!ShouldUsePortraitStadiumBackdrop())
+        {
+            return;
+        }
+
+        keeperStart = PortraitStadiumKeeperStart;
+        if (keeper != null)
+        {
+            keeper.localScale = Vector3.one * PortraitStadiumKeeperScale;
+            if (forceReadyPose || !shooting)
+            {
+                keeper.position = keeperStart;
+                keeper.rotation = Quaternion.identity;
+            }
+        }
+
+        if (cameraRig != null && (forceReadyPose || !shooting))
+        {
+            cameraRig.position = ReadyCameraPosition();
+            cameraRig.rotation = ReadyCameraRotation();
+        }
     }
 
     private bool IsPhotoStadiumActive()
@@ -5560,7 +5591,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         }
 
         renderer.sprite = stadiumBackdropSprite;
-        renderer.enabled = true;
+        renderer.enabled = !ShouldUsePortraitStadiumBackdrop();
         renderer.flipX = true;
         renderer.color = new Color(1.18f, 1.03f, 1.03f, 1f);
         if (stadiumBackdropMaterial != null)
@@ -5604,10 +5635,14 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         backdrop.name = "Photo Stadium Camera Backdrop";
         backdrop.transform.SetParent(camera.transform, false);
 
-        float distance = Mathf.Clamp(camera.farClipPlane * 0.42f, 24f, 55f);
+        float distance = ShouldUsePortraitStadiumBackdrop()
+            ? Mathf.Clamp(camera.farClipPlane * 0.5f, 32f, 64f)
+            : Mathf.Clamp(camera.farClipPlane * 0.42f, 24f, 55f);
         float height = 2f * Mathf.Tan(camera.fieldOfView * 0.5f * Mathf.Deg2Rad) * distance;
         float width = height * camera.aspect;
-        backdrop.transform.localPosition = new Vector3(0f, -0.08f, distance);
+        backdrop.transform.localPosition = ShouldUsePortraitStadiumBackdrop()
+            ? new Vector3(0f, 0.03f, distance)
+            : new Vector3(0f, -0.08f, distance);
         backdrop.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
         backdrop.transform.localScale = new Vector3(width, height, 1f);
 
@@ -5750,6 +5785,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         {
             EnsureCameraStadiumBackdrop(stadiumTexture);
         }
+        ApplyPortraitStadiumLayout(forceReadyPose: false);
     }
 
     private static void SetRenderersEnabled(Transform root, bool enabled)
@@ -6697,33 +6733,54 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
 
     private static Vector3 ReadyCameraPosition()
     {
+        if (ShouldUsePortraitStadiumBackdrop())
+        {
+            return new Vector3(0f, 2.35f, -6.35f);
+        }
+
         return UseArcadeVideoCamera ? new Vector3(0f, 1.95f, -4.85f) : new Vector3(0f, 3.05f, -7.1f);
     }
 
     private static Quaternion ReadyCameraRotation()
     {
+        if (ShouldUsePortraitStadiumBackdrop())
+        {
+            return Quaternion.Euler(3.2f, 0f, 0f);
+        }
+
         return UseArcadeVideoCamera ? Quaternion.Euler(6.5f, 0f, 0f) : Quaternion.Euler(13.5f, 0f, 0f);
     }
 
     private Vector3 ShotCameraPosition(float t, float impact, bool saved, float reboundSide)
     {
         Vector3 ready = ReadyCameraPosition();
-        Vector3 follow = new Vector3(aimX * 0.2f, saved ? 2.2f : 2.1f, saved ? -4.08f : -4.42f);
+        Vector3 follow = ShouldUsePortraitStadiumBackdrop()
+            ? new Vector3(aimX * 0.06f, saved ? 2.42f : 2.38f, saved ? -6.0f : -6.12f)
+            : new Vector3(aimX * 0.2f, saved ? 2.2f : 2.1f, saved ? -4.08f : -4.42f);
         float pushIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, saved ? 0.44f : 0.58f, t));
         Vector3 camera = Vector3.Lerp(ready, follow, pushIn);
-        camera.x += reboundSide * impact * (saved ? 0.22f : 0.1f);
-        camera.y += impact * (saved ? 0.1f : 0.05f);
-        camera.z += impact * (saved ? 0.62f : 0.34f);
+        float portraitDamping = ShouldUsePortraitStadiumBackdrop() ? 0.32f : 1f;
+        camera.x += reboundSide * impact * (saved ? 0.22f : 0.1f) * portraitDamping;
+        camera.y += impact * (saved ? 0.1f : 0.05f) * portraitDamping;
+        camera.z += impact * (saved ? 0.62f : 0.34f) * portraitDamping;
         return camera;
     }
 
     private Quaternion ShotCameraRotation(float t, float impact, float reboundSide)
     {
         float pushIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.5f, t));
-        float basePitch = Mathf.Lerp(6.5f, 9.25f, pushIn);
-        float shotLift = Mathf.Sin(t * Mathf.PI) * 2.15f;
-        float yaw = aimX * 1.45f + reboundSide * impact * 2.2f;
-        return Quaternion.Euler(basePitch + shotLift - impact * 2.45f, yaw, reboundSide * impact * 0.85f);
+        if (ShouldUsePortraitStadiumBackdrop())
+        {
+            float basePitch = Mathf.Lerp(3.2f, 4.35f, pushIn);
+            float shotLift = Mathf.Sin(t * Mathf.PI) * 0.65f;
+            float yaw = aimX * 0.45f + reboundSide * impact * 0.65f;
+            return Quaternion.Euler(basePitch + shotLift - impact * 0.8f, yaw, reboundSide * impact * 0.22f);
+        }
+
+        float landscapePitch = Mathf.Lerp(6.5f, 9.25f, pushIn);
+        float landscapeShotLift = Mathf.Sin(t * Mathf.PI) * 2.15f;
+        float landscapeYaw = aimX * 1.45f + reboundSide * impact * 2.2f;
+        return Quaternion.Euler(landscapePitch + landscapeShotLift - impact * 2.45f, landscapeYaw, reboundSide * impact * 0.85f);
     }
 
     private void SetStatus(string message)
