@@ -33,6 +33,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private const string UploadedStylizedKeeperResource = "BM8Keeper/ThuMon/Goalkeeper_TPose";
     private const string Bm8KeeperBaseTextureResource = "BM8Keeper/ThuMon/textures/Goalkeeper_Base_color";
     private const string StadiumBackdropResource = "Stadium/bm8-stadium-photo-balanced-1920";
+    private const string StadiumBackdropPortraitResource = "Stadium/bm8-stadium-mobile-portrait";
     private const string BackgroundMusicResource = "Audio/dai-dai-world-cup-2026";
     private const string AaGoalkeeperControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
     private const string RuntimeTestRequestKey = "BM8.KeeperRuntimeTest.Requested";
@@ -5408,28 +5409,38 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
             return stadiumBackdropTexture;
         }
 
-        stadiumBackdropTexture = Resources.Load<Texture2D>(StadiumBackdropResource);
+        string primaryResource = ShouldUsePortraitStadiumBackdrop()
+            ? StadiumBackdropPortraitResource
+            : StadiumBackdropResource;
+
+        stadiumBackdropTexture = Resources.Load<Texture2D>(primaryResource);
         if (stadiumBackdropTexture != null)
         {
             return stadiumBackdropTexture;
         }
 
-        string filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-balanced-1920.png");
+        string filePath = ShouldUsePortraitStadiumBackdrop()
+            ? Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-mobile-portrait.jpg")
+            : Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-balanced-1920.png");
         if (!File.Exists(filePath))
         {
-            filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-1920.png");
+            filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-balanced-1920.png");
             if (!File.Exists(filePath))
             {
-                filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-designed-1920.png");
+                filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-1920.png");
                 if (!File.Exists(filePath))
                 {
-                    filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-red-stadium-wide-runtime.png");
+                    filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-designed-1920.png");
                     if (!File.Exists(filePath))
                     {
-                        filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-red-stadium-wide.jpg");
+                        filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-red-stadium-wide-runtime.png");
                         if (!File.Exists(filePath))
                         {
-                            return null;
+                            filePath = Path.Combine(Application.dataPath, "Resources/Stadium/bm8-red-stadium-wide.jpg");
+                            if (!File.Exists(filePath))
+                            {
+                                return null;
+                            }
                         }
                     }
                 }
@@ -5450,9 +5461,15 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         return stadiumBackdropTexture;
     }
 
+    private static bool ShouldUsePortraitStadiumBackdrop()
+    {
+        return Screen.height > Screen.width;
+    }
+
     private bool IsPhotoStadiumActive()
     {
         return stadiumBackdropTexture != null
+            || File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-mobile-portrait.jpg"))
             || File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-balanced-1920.png"))
             || File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-1920.png"))
             || File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-designed-1920.png"))
@@ -5684,6 +5701,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private void KeepPhotoStadiumSceneClean()
     {
         if (stadiumBackdropTexture == null
+            && !File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-mobile-portrait.jpg"))
             && !File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-balanced-1920.png"))
             && !File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-stadium-photo-1920.png"))
             && !File.Exists(Path.Combine(Application.dataPath, "Resources/Stadium/bm8-red-stadium-wide-runtime.png")))
