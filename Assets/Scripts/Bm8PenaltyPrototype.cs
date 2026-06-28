@@ -37,8 +37,8 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     private const string BackgroundMusicResource = "Audio/dai-dai-world-cup-2026";
     private const string AaGoalkeeperControllerFolder = "Assets/animo/AA_Soccer_Goalkeeper/Controller/";
     private const string RuntimeTestRequestKey = "BM8.KeeperRuntimeTest.Requested";
-    private const float PortraitStadiumKeeperScale = 0.82f;
-    private static readonly Vector3 PortraitStadiumKeeperStart = new Vector3(0f, 0f, 4.84f);
+    private const float PortraitStadiumKeeperScale = 1.18f;
+    private static readonly Vector3 PortraitStadiumKeeperStart = new Vector3(0f, 0.03f, 3.42f);
 
     [Header("Scene Objects")]
     [SerializeField] private Transform ball;
@@ -5560,9 +5560,9 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         bool portrait = ShouldUsePortraitStadiumBackdrop();
         backdrop.name = "Photo Stadium Full Wall";
         backdrop.transform.SetParent(parent, false);
-        backdrop.transform.position = portrait ? new Vector3(0f, 1.62f, 5.22f) : new Vector3(0f, 1.58f, 5.2f);
+        backdrop.transform.position = portrait ? new Vector3(0f, 1.18f, 5.42f) : new Vector3(0f, 1.58f, 5.2f);
         backdrop.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
-        backdrop.transform.localScale = portrait ? new Vector3(1.36f, 1.36f, 1f) : new Vector3(1f, 1f, 1f);
+        backdrop.transform.localScale = portrait ? new Vector3(1.18f, 1.18f, 1f) : new Vector3(1f, 1f, 1f);
 
         Collider collider = backdrop.GetComponent<Collider>();
         if (collider != null)
@@ -6736,7 +6736,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         if (ShouldUsePortraitStadiumBackdrop())
         {
-            return new Vector3(0f, 2.35f, -6.35f);
+            return new Vector3(0f, 2.05f, -5.65f);
         }
 
         return UseArcadeVideoCamera ? new Vector3(0f, 1.95f, -4.85f) : new Vector3(0f, 3.05f, -7.1f);
@@ -6746,7 +6746,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         if (ShouldUsePortraitStadiumBackdrop())
         {
-            return Quaternion.Euler(3.2f, 0f, 0f);
+            return Quaternion.Euler(5.4f, 0f, 0f);
         }
 
         return UseArcadeVideoCamera ? Quaternion.Euler(6.5f, 0f, 0f) : Quaternion.Euler(13.5f, 0f, 0f);
@@ -6756,7 +6756,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
     {
         Vector3 ready = ReadyCameraPosition();
         Vector3 follow = ShouldUsePortraitStadiumBackdrop()
-            ? new Vector3(aimX * 0.06f, saved ? 2.42f : 2.38f, saved ? -6.0f : -6.12f)
+            ? new Vector3(aimX * 0.05f, saved ? 2.12f : 2.08f, saved ? -5.35f : -5.48f)
             : new Vector3(aimX * 0.2f, saved ? 2.2f : 2.1f, saved ? -4.08f : -4.42f);
         float pushIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, saved ? 0.44f : 0.58f, t));
         Vector3 camera = Vector3.Lerp(ready, follow, pushIn);
@@ -6772,7 +6772,7 @@ public sealed class Bm8PenaltyPrototype : MonoBehaviour
         float pushIn = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0f, 0.5f, t));
         if (ShouldUsePortraitStadiumBackdrop())
         {
-            float basePitch = Mathf.Lerp(3.2f, 4.35f, pushIn);
+            float basePitch = Mathf.Lerp(5.4f, 6.25f, pushIn);
             float shotLift = Mathf.Sin(t * Mathf.PI) * 0.65f;
             float yaw = aimX * 0.45f + reboundSide * impact * 0.65f;
             return Quaternion.Euler(basePitch + shotLift - impact * 0.8f, yaw, reboundSide * impact * 0.22f);
